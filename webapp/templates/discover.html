@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Discover{% endblock %}
+{% block content %}
+<h1>Discover <span class="badge mongo">MongoDB</span></h1>
+<p class="lede">Search the nested <code>movie_features</code> documents: by keyword (embedded array,
+  <code>idx_keywords_name</code>) or by words in the plot overview (text index, ranked by relevance).
+  Titles are then looked up in MySQL by <code>movie_id</code>.</p>
+
+<form class="filters" method="get">
+  <select name="mode">
+    <option value="keyword" {{ 'selected' if mode == 'keyword' }}>Keyword is</option>
+    <option value="overview" {{ 'selected' if mode == 'overview' }}>Overview mentions</option>
+  </select>
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ 'e.g. time travel' if mode == 'keyword' else 'e.g. heist bank robbery' }}" autofocus>
+  <button>Search</button>
+</form>
+
+{% if q %}
+  <p class="muted">{{ results|length }} film{{ '' if results|length == 1 else 's' }} found{{ ' (showing up to 60)' if results|length == 60 }}.</p>
+  {% for r in results %}
+    <div class="result">
+      <a href="{{ url_for('main.movie', movie_id=r.movie_id, **{'from': 'discover'}) }}"><b>{{ r.film.title if r.film else r.movie_id }}</b></a>
+      {% if r.film and r.film.release_year %}<span class="muted">{{ r.film.release_year }}</span>{% endif %}
+      {% if r.score %}<span class="muted">· relevance {{ '%.2f'|format(r.score) }}</span>{% endif %}
+      <p>{{ r.overview or '' }}</p>
+      <p class="chips">{% for k in r.keywords[:12] %}<a class="chip {{ 'hit' if k == q|lower }}" href="{{ url_for('main.discover', mode='keyword', q=k) }}">{{ k }}</a>{% endfor %}</p>
+    </div>
+  {% else %}
+    <p class="empty">Nothing found. {% if mode == 'keyword' %}Keywords must match exactly: try one of the popular ones below.{% endif %}</p>
+  {% endfor %}
+{% endif %}
+
+<h2>Popular keywords</h2>
+<p class="chips">{% for k in top_keywords %}<a class="chip" href="{{ url_for('main.discover', mode='keyword', q=k.keyword) }}">{{ k.keyword }} <span class="muted">{{ k.count }}</span></a>{% endfor %}</p>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}People{% endblock %}
+{% block content %}
+<h1>People <span class="badge mysql">MySQL</span></h1>
+<p class="lede">Every film a person worked on, in front of or behind the camera (query Q2:
+  <code>movie_cast</code> and <code>movie_crew</code> joined to <code>people</code>, combined with <code>UNION ALL</code>).</p>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Name contains… e.g. Christopher Nolan" autofocus>
+  <button>Search</button>
+</form>
+
+{% for p in groups %}
+  <section class="card">
+    <h2>{{ p.name }} <span class="muted">· {{ p.credits|length }} credit{{ '' if p.credits|length == 1 else 's' }}</span></h2>
+    <table class="list compact">
+      {% for c in p.credits %}
+      <tr><td>{{ c.release_year or '-' }}</td>
+          <td><a href="{{ url_for('main.movie', movie_id=c.movie_id, **{'from': 'people'}) }}">{{ c.title }}</a></td>
+          <td><span class="pill">{{ c.credit_type }}</span></td>
+          <td class="muted">{{ c.role or '' }}</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+{% else %}
+  {% if q|length >= 3 %}<p class="empty">No one matches “{{ q }}”.</p>{% endif %}
+{% endfor %}
+{% endblock %}

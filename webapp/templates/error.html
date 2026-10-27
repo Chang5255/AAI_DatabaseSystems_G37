@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p class="flash error">{{ message }}</p>
+{% if hint %}<p>{{ hint }}</p>{% endif %}
+<p><a href="{{ url_for('main.browse') }}">← Back to browsing</a></p>
+{% endblock %}

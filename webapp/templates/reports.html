@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+<div class="reports">
+  <nav class="side">
+    <h3><span class="badge mysql">MySQL</span></h3>
+    {% for k, t in sql_menu %}<a href="{{ url_for('main.reports', r=k) }}" class="{{ 'on' if k == key }}">{{ t }}</a>{% endfor %}
+    <h3><span class="badge mongo">MongoDB</span></h3>
+    {% for k, t in mongo_menu %}<a href="{{ url_for('main.reports', r=k) }}" class="{{ 'on' if k == key }}">{{ t }}</a>{% endfor %}
+  </nav>
+  <section>
+    <h2>{{ title }} <span class="badge {{ 'mysql' if database == 'MySQL' else 'mongo' }}">{{ database }}</span></h2>
+    <p class="muted">{{ feature }} · {{ rows|length }} row{{ '' if rows|length == 1 else 's' }}</p>
+    {% if rows %}
+    <div class="scroll">
+    <table class="list">
+      <thead><tr>{% for c in columns %}<th>{{ c.replace('_', ' ') }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>{% for c in columns %}{% set v = row[c] %}
+          <td>{% if c == 'title' and row.movie_id %}<a href="{{ url_for('main.movie', movie_id=row.movie_id) }}">{{ v }}</a>
+              {% elif v is none %}<span class="muted">-</span>
+              {% elif v.__class__.__name__ in ('float', 'Decimal') %}{{ v|num(2) }}
+              {% elif v.__class__.__name__ == 'datetime' %}{{ v|dt }}
+              {% else %}{{ v }}{% endif %}</td>
+        {% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}<p class="empty">No rows.</p>{% endif %}
+    <details class="source">
+      <summary>Show the {{ 'SQL' if database == 'MySQL' else 'MongoDB code' }}</summary>
+      <pre>{{ source }}</pre>
+    </details>
+  </section>
+</div>
+{% endblock %}
