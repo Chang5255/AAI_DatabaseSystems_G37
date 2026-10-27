@@ -7,7 +7,7 @@
 -- BEFORE RUNNING:
 --   1. Edit the 8 file paths below to point at your cleaned/ folder.
 --      Use FORWARD slashes even on Windows:
---        'C:/Users/reiner/INF2003/data/cleaned/movies.csv'
+--        'C:/path/to/AAI_DatabaseSystems_G37/data/cleaned/movies.csv'
 --   2. Enable local file loading (see user manual / step 3 of the guide):
 --        SET GLOBAL local_infile = 1;
 --      and connect with local-infile enabled on the client side.
