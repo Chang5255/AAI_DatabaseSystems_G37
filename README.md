@@ -14,6 +14,7 @@ data/cleaned/        cleaned TMDB CSVs + movie_features.jsonl (used by both data
 database/mysql/      SQL scripts 01-07
 database/mongodb/    Python setup, CRUD, aggregation and recommendation scripts
 benchmark/           MySQL vs MongoDB timing experiments
+app.py, webapp/      Flask web UI over both databases
 .env.example         settings for both databases
 requirements.txt     Python packages for both databases
 ```
@@ -25,3 +26,23 @@ requirements.txt     Python packages for both databases
 3. MySQL: follow `database/mysql/README.md` (scripts 01 to 07).
 4. MongoDB: follow `database/mongodb/README.md`.
 5. Benchmarks: see `benchmark/README.md`. Run scripts from the repo root.
+6. Web UI: with both databases loaded and the virtual environment active, run `python app.py`
+   and open http://127.0.0.1:5000. Stop it with Ctrl+C.
+
+## Web UI
+
+| Page | Database | What it shows |
+|---|---|---|
+| Browse | MySQL | Search by title, genre, year, language (Q1 on `v_movie_cards`) |
+| Discover | MongoDB | Keyword search on `keywords.name`; overview text search (text index) |
+| People | MySQL | Every credit for a person (Q2, `UNION ALL`) |
+| Film page | Both | MySQL: details, ratings CRUD. MongoDB: overview, keywords, cast/crew, tags CRUD |
+| Users / profile | Both | MySQL: user CRUD, ratings, favourite genre. MongoDB: tags, activity log, recommendations |
+| Reports | Both | Queries Q4-Q14 from `06_queries.sql` and the MongoDB aggregation pipelines, with their code |
+| SQL vs NoSQL | Both | Benchmark tasks T1-T3 timed live with `benchmark/harness.py` |
+
+Pick a user in the top bar ("Acting as") to rate films, add tags and have views logged.
+Every page lists the database calls it made and how long each took (bar at the bottom).
+
+On first start the UI adds one MongoDB index, `idx_overview_text` (a text index on
+`movie_features.overview`), which the overview search needs.

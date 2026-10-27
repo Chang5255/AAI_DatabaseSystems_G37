@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.display_name or profile.username }}{% endblock %}
+{% block content %}
+<h1>{{ profile.display_name or profile.username }} <span class="year">@{{ profile.username }}</span></h1>
+<p class="muted">User {{ profile.user_id }} · joined {{ profile.created_at|dt }}</p>
+
+<div class="grid">
+  <div>
+    <section class="card">
+      <h2>Recommended for this user <span class="badge mongo">MongoDB</span></h2>
+      <form method="post" action="{{ url_for('main.recommend', user_id=profile.user_id) }}" class="inline">
+        <button>Generate new recommendations</button>
+      </form>
+      {% if recs %}
+        <p class="note">Algorithm: {{ latest.algorithm }} · generated {{ latest.generated_at|dt }} UTC.
+          Films sharing keywords with ones this user viewed.</p>
+        <table class="list compact">
+          {% for r in recs %}{% set f = titles.get(r.movie_id) %}
+          <tr><td><a href="{{ url_for('main.movie', movie_id=r.movie_id, **{'from': 'recommendations'}) }}">{{ f.title if f else r.movie_id }}</a></td>
+              <td class="r">{{ '%.0f'|format(r.score * 100) }}%</td>
+              <td class="muted">{{ r.matched_keywords[:5]|join(', ') }}</td></tr>
+          {% endfor %}
+        </table>
+      {% else %}
+        <p class="muted">None yet. View a few films as this user, then generate.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Ratings <span class="badge mysql">MySQL</span> <span class="muted">· {{ ratings|length }}</span></h2>
+      {% if fav_genres %}<p class="note">Favourite genres (rated 3+ times):
+        {% for fg in fav_genres %}<b>{{ fg.genre }}</b> {{ fg.avg_rating }}★ ({{ fg.ratings_in_genre }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+      <table class="list compact">
+        {% for r in ratings %}
+        <tr><td><a href="{{ url_for('main.movie', movie_id=r.movie_id) }}">{{ r.title }}</a> <span class="muted">{{ r.release_year or '' }}</span></td>
+            <td class="r">{{ r.rating_value }} ★</td>
+            <td class="muted r">{{ (r.updated_at or r.rated_at)|dt }}</td></tr>
+        {% else %}<tr><td class="muted">No ratings yet.</td></tr>{% endfor %}
+      </table>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <h2>Tags <span class="badge mongo">MongoDB</span></h2>
+      {% for t in tags %}{% set f = titles.get(t.movie_id) %}
+        <div class="tag-row"><span class="chip">{{ t.tag }}</span> on
+          <a href="{{ url_for('main.movie', movie_id=t.movie_id) }}">{{ f.title if f else t.movie_id }}</a></div>
+      {% else %}<p class="muted">No tags yet.</p>{% endfor %}
+    </section>
+
+    <section class="card">
+      <h2>Recent activity <span class="badge mongo">MongoDB</span></h2>
+      <table class="list compact">
+        {% for a in activity %}{% set f = titles.get(a.movie_id) if a.movie_id else none %}
+        <tr><td class="muted">{{ a.timestamp|dt }}</td>
+            <td><span class="pill">{{ a.event_type }}</span></td>
+            <td>{% if f %}<a href="{{ url_for('main.movie', movie_id=a.movie_id) }}">{{ f.title }}</a>{% endif %}
+                {% if a.metadata and a.metadata.query %}“{{ a.metadata.query }}” → {{ a.metadata.result_count }}{% endif %}
+                {% if a.metadata and a.metadata.rating %}{{ a.metadata.rating }} ★{% endif %}</td></tr>
+        {% else %}<tr><td class="muted">No activity logged.</td></tr>{% endfor %}
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Edit profile <span class="badge mysql">MySQL</span></h2>
+      <form method="post" action="{{ url_for('main.edit_user', user_id=profile.user_id) }}" class="inline">
+        <input name="display_name" value="{{ profile.display_name or '' }}" placeholder="Display name">
+        <button>Save</button>
+      </form>
+      <form method="post" action="{{ url_for('main.delete_user', user_id=profile.user_id) }}" class="inline"
+            onsubmit="return confirm('Delete this user, their ratings, tags, activity and recommendations?');">
+        <button class="danger">Delete user</button>
+      </form>
+      <p class="note">Deleting removes the user's ratings through <code>ON DELETE CASCADE</code> in MySQL.
+        MongoDB has no foreign keys, so the app deletes their tags, activity and recommendations itself.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

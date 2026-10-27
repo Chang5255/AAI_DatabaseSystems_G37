@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Movie Discovery{% endblock %} · Team 37</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('main.browse') }}">Movie Discovery <span>Team 37</span></a>
+  <nav>
+    {% set ep = request.endpoint %}
+    <a href="{{ url_for('main.browse') }}" class="{{ 'on' if ep == 'main.browse' }}">Browse</a>
+    <a href="{{ url_for('main.discover') }}" class="{{ 'on' if ep == 'main.discover' }}">Discover</a>
+    <a href="{{ url_for('main.people') }}" class="{{ 'on' if ep == 'main.people' }}">People</a>
+    <a href="{{ url_for('main.reports') }}" class="{{ 'on' if ep == 'main.reports' }}">Reports</a>
+    <a href="{{ url_for('main.compare') }}" class="{{ 'on' if ep == 'main.compare' }}">SQL vs NoSQL</a>
+    <a href="{{ url_for('main.users') }}" class="{{ 'on' if ep in ('main.users', 'main.user') }}">Users</a>
+  </nav>
+  <form class="switcher" method="post" action="{{ url_for('main.switch_user') }}">
+    <label for="user_id">Acting as</label>
+    <select id="user_id" name="user_id" onchange="this.form.submit()">
+      <option value="">Guest (no ratings or tags)</option>
+      {% for u in all_users %}
+        <option value="{{ u.user_id }}" {{ 'selected' if current_user and current_user.user_id == u.user_id }}>
+          {{ u.display_name or u.username }} ({{ u.username }})</option>
+      {% endfor %}
+    </select>
+    <noscript><button>Go</button></noscript>
+    {% if current_user %}<a href="{{ url_for('main.user', user_id=current_user.user_id) }}">Profile</a>{% endif %}
+  </form>
+</header>
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+{% if g.timings %}
+<footer class="timings">
+  <details>
+    <summary>This page ran {{ g.timings|length }} database calls ·
+      <span class="badge mysql">MySQL</span>
+      {{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MySQL')|sum(attribute='ms')) }} ms ·
+      <span class="badge mongo">MongoDB</span>
+      {{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MongoDB')|sum(attribute='ms')) }} ms
+    </summary>
+    <table>
+      <tr><th>Database</th><th>What</th><th class="r">Rows / docs</th><th class="r">ms</th></tr>
+      {% for t in g.timings %}
+      <tr><td><span class="badge {{ 'mysql' if t.db == 'MySQL' else 'mongo' }}">{{ t.db }}</span></td>
+          <td>{{ t.label }}</td><td class="r">{{ t.rows }}</td><td class="r">{{ '%.2f'|format(t.ms) }}</td></tr>
+      {% endfor %}
+    </table>
+  </details>
+</footer>
+{% endif %}
+</body>
+</html>

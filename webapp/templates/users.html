@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Users <span class="badge mysql">MySQL</span></h1>
+<p class="lede">Demo profiles with no passwords (by design). Pick one in the top bar to rate and tag films as that user.</p>
+
+<section class="card">
+  <h2>Create a user</h2>
+  <form method="post" action="{{ url_for('main.create_user') }}" class="inline">
+    <input name="username" placeholder="username (3+ characters, unique)" required>
+    <input name="display_name" placeholder="Display name (optional)">
+    <button>Create</button>
+  </form>
+  <p class="note">Usernames are checked by the database itself: <code>UNIQUE</code> rejects duplicates and a
+    <code>CHECK</code> rejects names shorter than 3 characters. Try one to see the error.</p>
+</section>
+
+<table class="list">
+  <thead><tr><th>User</th><th>Username</th><th class="r">Ratings</th><th class="r">Avg given</th><th>Last rated</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td><a href="{{ url_for('main.user', user_id=u.user_id) }}">{{ u.display_name or u.username }}</a></td>
+      <td class="muted">{{ u.username }}</td>
+      <td class="r">{{ u.ratings_given }}</td>
+      <td class="r">{{ u.avg_rating_given|num(2) }}</td>
+      <td class="muted">{{ u.latest_rating_at|dt }}</td>
+      <td class="r">
+        <form method="post" action="{{ url_for('main.switch_user') }}" class="inline">
+          <input type="hidden" name="user_id" value="{{ u.user_id }}">
+          <button class="quiet">Act as</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

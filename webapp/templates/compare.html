@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}SQL vs NoSQL{% endblock %}
+{% block content %}
+<h1>SQL vs NoSQL, live</h1>
+<p class="lede">The benchmark tasks from <code>benchmark/README.md</code>, run now on both databases with the team's
+  <code>harness.py</code>: 1 warm-up, then {{ repeats }} timed runs each, including fetching every row.
+  Use <b>median</b> as the headline number.</p>
+
+<form class="filters" method="get">
+  <label>Movie id <input type="number" name="movie_id" value="{{ movie_id }}"></label>
+  <label>Actor person id <input type="number" name="person_id" value="{{ person_id }}"></label>
+  <label>Runs <input type="number" name="repeats" value="{{ repeats }}" min="3" max="200"></label>
+  <button>Run</button>
+  <button name="random" value="1" class="quiet">Random ids from sample_ids.json</button>
+</form>
+
+{% if not film or not person %}
+  <p class="flash error">{{ 'No film with that id.' if not film else 'No person with that id.' }}</p>
+{% else %}
+<p>Film: <a href="{{ url_for('main.movie', movie_id=movie_id) }}"><b>{{ film.title }}</b></a> ·
+   Actor: <a href="{{ url_for('main.people', q=person.name) }}"><b>{{ person.name }}</b></a></p>
+
+<table class="list bench">
+  <thead><tr><th>Task</th><th>Database</th><th>How</th><th class="r">Rows</th>
+    <th class="r">Median ms</th><th class="r">p95 ms</th><th class="r">Mean ms</th><th class="wide">Median</th></tr></thead>
+  <tbody>
+  {% for r in results %}
+    <tr class="{{ 'first' if loop.first or r.task != results[loop.index0 - 1].task }}">
+      <td><b>{{ r.task }}</b> <span class="muted">{{ r.question }}</span></td>
+      <td><span class="badge {{ 'mysql' if r.db == 'MySQL' else 'mongo' }}">{{ r.db }}</span></td>
+      <td class="muted">{{ r.method }}</td>
+      <td class="r">{{ r.rows }}</td>
+      <td class="r"><b>{{ '%.3f'|format(r.median_ms) }}</b></td>
+      <td class="r">{{ '%.3f'|format(r.p95_ms) }}</td>
+      <td class="r">{{ '%.3f'|format(r.mean_ms) }}</td>
+      <td class="wide"><div class="bar {{ 'mysql' if r.db == 'MySQL' else 'mongo' }}" style="width: {{ r.bar }}%"></div></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Query plans MongoDB used</h2>
+<dl class="crew">{% for k, v in plans.items() %}<dt>{{ k }}</dt><dd><code>{{ v }}</code></dd>{% endfor %}</dl>
+<p class="note"><code>IXSCAN</code> means an index was used; <code>COLLSCAN</code> means every document was read.
+  The benchmark README suggests an index on <code>cast.person_id</code> for T3, so a COLLSCAN there is
+  worth fixing before you record final numbers. For the report, use <code>benchmark/mysql_bench.py</code>
+  over all 300 sample ids: this page times one id at a time.</p>
+{% endif %}
+{% endblock %}
