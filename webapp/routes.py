@@ -18,6 +18,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from flask import (Blueprint, abort, flash, g, redirect, render_template,
                    request, session, url_for)
+from pymongo.errors import PyMongoError
 
 from . import queries as Q
 from .db import get_mongo, get_mysql, mongo_timed, mysql_exec, mysql_query
@@ -36,6 +37,7 @@ bp = Blueprint("main", __name__)
 
 PAGE_SIZE = 25
 RATING_CHOICES = [x / 2 for x in range(1, 11)]   # 0.5 .. 5.0
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"   # + size + poster_path
 
 # MySQL error numbers raised by the constraints in 01_schema.sql
 ER_DUP_ENTRY = 1062
@@ -89,6 +91,24 @@ def titles_for(movie_ids):
     sql = Q.TITLES_FOR_IDS.format(placeholders=", ".join(["%s"] * len(ids)))
     rows = mysql_query(sql, tuple(ids), "Titles for MongoDB results")
     return {r["movie_id"]: r for r in rows}
+
+
+def posters_for(movie_ids):
+    """movie_id -> poster_path from MongoDB, for MySQL results.
+
+    Posters are decoration, so if MongoDB is unavailable the MySQL page
+    still renders (with placeholders) instead of failing.
+    """
+    ids = [int(m) for m in dict.fromkeys(movie_ids)]
+    if not ids:
+        return {}
+    try:
+        docs = mongo_timed("Posters for MySQL results (find $in)", lambda: list(
+            get_mongo().movie_features.find({"movie_id": {"$in": ids}, "poster_path": {"$ne": None}},
+                                            {"_id": 0, "movie_id": 1, "poster_path": 1})))
+    except PyMongoError:
+        return {}
+    return {d["movie_id"]: d["poster_path"] for d in docs}
 
 
 def usernames():
@@ -145,6 +165,12 @@ def dt(value):
     return value.strftime("%Y-%m-%d %H:%M")
 
 
+@bp.app_template_filter("poster")
+def poster(path, size="w185"):
+    """TMDB image URL for a poster_path stored in movie_features, or None."""
+    return f"{TMDB_IMAGE_BASE}{size}{path}" if path else None
+
+
 # ---------------------------------------------------------------------
 # Switch user
 # ---------------------------------------------------------------------
@@ -185,6 +211,7 @@ def browse():
 
     return render_template(
         "browse.html", rows=rows, params=params, page=page, has_next=has_next,
+        offset=(page - 1) * PAGE_SIZE, posters=posters_for(r["movie_id"] for r in rows),
         genres=[r["name"] for r in mysql_query(Q.GENRES, (), "Genre list")],
         languages=mysql_query(Q.LANGUAGES, (), "Language list"),
     )
@@ -204,20 +231,22 @@ def discover():
         # Exact keyword match on the embedded array: uses idx_keywords_name
         docs = mongo_timed("find {keywords.name: q}", lambda: list(
             db.movie_features.find({"keywords.name": q.lower()},
-                                   {"_id": 0, "movie_id": 1, "overview": 1, "keywords.name": 1})
+                                   {"_id": 0, "movie_id": 1, "overview": 1, "keywords.name": 1,
+                                    "poster_path": 1})
             .limit(60)))
         results = [{"movie_id": d["movie_id"], "overview": d.get("overview"),
-                    "keywords": [k["name"] for k in d.get("keywords", [])]} for d in docs]
+                    "keywords": [k["name"] for k in d.get("keywords", [])],
+                    "poster_path": d.get("poster_path")} for d in docs]
     elif q and mode == "overview":
         # Full-text search on overview, ranked by relevance (text index)
         docs = mongo_timed("find {$text: q} sorted by textScore", lambda: list(
             db.movie_features.find({"$text": {"$search": q}},
-                                   {"_id": 0, "movie_id": 1, "overview": 1,
-                                    "keywords.name": 1, "score": {"$meta": "textScore"}})
+                                   {"_id": 0, "movie_id": 1, "overview": 1, "keywords.name": 1,
+                                    "poster_path": 1, "score": {"$meta": "textScore"}})
             .sort([("score", {"$meta": "textScore"})]).limit(60)))
         results = [{"movie_id": d["movie_id"], "overview": d.get("overview"),
                     "keywords": [k["name"] for k in d.get("keywords", [])],
-                    "score": d.get("score")} for d in docs]
+                    "poster_path": d.get("poster_path"), "score": d.get("score")} for d in docs]
 
     titles = titles_for(r["movie_id"] for r in results)
     for r in results:
@@ -434,8 +463,11 @@ def user(user_id):
     titles = titles_for([t["movie_id"] for t in tags]
                         + [a["movie_id"] for a in activity if "movie_id" in a]
                         + [r["movie_id"] for r in recs])
+    posters = posters_for([r["movie_id"] for r in recs]
+                          + [a["movie_id"] for a in activity if a.get("movie_id")])
     return render_template("user.html", profile=profile, ratings=ratings, fav_genres=fav_genres,
-                           tags=tags, activity=activity, latest=latest, recs=recs, titles=titles)
+                           tags=tags, activity=activity, latest=latest, recs=recs, titles=titles,
+                           posters=posters)
 
 
 @bp.post("/users/<int:user_id>/edit")

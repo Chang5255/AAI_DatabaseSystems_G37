@@ -25,8 +25,12 @@ requirements.txt     Python packages for both databases
 2. Copy `.env.example` to `.env` and fill in your MySQL password (never commit `.env`).
 3. MySQL: follow `database/mysql/README.md` (scripts 01 to 07).
 4. MongoDB: follow `database/mongodb/README.md`.
-5. Benchmarks: see `benchmark/README.md`. Run scripts from the repo root.
-6. Web UI: with both databases loaded and the virtual environment active, run `python app.py`
+5. Posters: the MongoDB setup loads `data/cleaned/posters.csv` into `movie_features.poster_path`
+   (no key needed; the images load from TMDB, so the UI needs internet to show them).
+   To refresh the file from TMDB, put a free API key in `.env` as `TMDB_API_KEY` and run
+   `python database/mongodb/fetch_posters.py`.
+6. Benchmarks: see `benchmark/README.md`. Run scripts from the repo root.
+7. Web UI: with both databases loaded and the virtual environment active, run `python app.py`
    and open http://127.0.0.1:5000. Stop it with Ctrl+C.
 
 ## Web UI

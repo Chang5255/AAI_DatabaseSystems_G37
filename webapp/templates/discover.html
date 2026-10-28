@@ -18,12 +18,16 @@
 {% if q %}
   <p class="muted">{{ results|length }} film{{ '' if results|length == 1 else 's' }} found{{ ' (showing up to 60)' if results|length == 60 }}.</p>
   {% for r in results %}
-    <div class="result">
+    <div class="result with-poster">
+      {% set p = r.poster_path|poster('w154') %}
+      {% if p %}<img class="poster" src="{{ p }}" alt="" loading="lazy">{% else %}<div class="poster none"></div>{% endif %}
+      <div>
       <a href="{{ url_for('main.movie', movie_id=r.movie_id, **{'from': 'discover'}) }}"><b>{{ r.film.title if r.film else r.movie_id }}</b></a>
       {% if r.film and r.film.release_year %}<span class="muted">{{ r.film.release_year }}</span>{% endif %}
       {% if r.score %}<span class="muted">· relevance {{ '%.2f'|format(r.score) }}</span>{% endif %}
       <p>{{ r.overview or '' }}</p>
       <p class="chips">{% for k in r.keywords[:12] %}<a class="chip {{ 'hit' if k == q|lower }}" href="{{ url_for('main.discover', mode='keyword', q=k) }}">{{ k }}</a>{% endfor %}</p>
+      </div>
     </div>
   {% else %}
     <p class="empty">Nothing found. {% if mode == 'keyword' %}Keywords must match exactly: try one of the popular ones below.{% endif %}</p>

@@ -1,56 +1,83 @@
 {% extends "base.html" %}
 {% block title %}{{ film.title }}{% endblock %}
 {% block content %}
-<div class="movie-head">
-  <div>
-    <h1>{{ film.title }} {% if film.release_year %}<span class="year">{{ film.release_year }}</span>{% endif %}</h1>
-    {% if film.original_title and film.original_title != film.title %}<p class="muted">Original title: {{ film.original_title }}</p>{% endif %}
-    <p class="facts">
-      {{ film.genres or 'No genre' }}
-      {% if film.runtime %} · {{ film.runtime }} min{% endif %}
-      {% if film.original_language %} · {{ film.original_language }}{% endif %}
-      {% if film.status %} · {{ film.status }}{% endif %}
-    </p>
+<a class="back" href="{{ url_for('main.browse') }}">← Back to Browse</a>
+
+<section class="movie-head">
+  {% set p = doc.poster_path|poster('w500') %}
+  {% if p %}<img class="poster" src="{{ p }}" alt="Poster for {{ film.title }}">{% else %}<div class="poster none">No poster</div>{% endif %}
+
+  <div class="movie-info">
+    <div>
+      <h1>{{ film.title }}{% if film.release_year %}<span class="year">{{ film.release_year }}</span>{% endif %}</h1>
+      {% if film.original_title and film.original_title != film.title %}<p class="muted">Original title: {{ film.original_title }}</p>{% endif %}
+      <p class="facts">
+        {% if film.runtime %}{{ film.runtime }} min{% endif %}
+        {% if film.original_language %} · {{ film.original_language }}{% endif %}
+        {% if film.status %} · {{ film.status }}{% endif %}
+        {% if film.release_date %} {{ film.release_date }}{% endif %}
+      </p>
+      {% if film.genres %}
+      <p class="chips">{% for g_ in film.genres.split(', ') %}<a class="chip" href="{{ url_for('main.browse', genre=g_) }}">{{ g_ }}</a>{% endfor %}</p>
+      {% endif %}
+    </div>
+
+    <div class="scores">
+      <div><b><span class="star" aria-hidden="true">★</span> {{ film.tmdb_score|num }}</b><span>TMDB · {{ '{:,}'.format(film.vote_count or 0) }} votes</span></div>
+      <div><b>{{ film.weighted_score|num(2) }}</b><span>Weighted score</span></div>
+      <div><b>{{ film.user_avg_rating|num(2) if film.user_rating_count else '-' }}</b><span>Our users · {{ film.user_rating_count }} rating{{ '' if film.user_rating_count == 1 else 's' }}</span></div>
+    </div>
+
+    <dl class="crew">
+      {% for job, names in key_crew.items() %}<dt>{{ job }}</dt><dd>{{ names|join(', ') }}</dd>{% endfor %}
+      <dt>Budget · Revenue</dt><dd>{{ film.budget|money }} · {{ film.revenue|money }}</dd>
+      <dt>Popularity</dt><dd>{{ film.popularity|num(1) }} <span class="muted">· TMDB id {{ film.movie_id }}</span></dd>
+    </dl>
   </div>
-  <div class="scores">
-    <div><b>{{ film.tmdb_score|num }}</b><span>TMDB ({{ '{:,}'.format(film.vote_count or 0) }} votes)</span></div>
-    <div><b>{{ film.weighted_score|num(2) }}</b><span>Weighted</span></div>
-    <div><b>{{ film.user_avg_rating|num(2) if film.user_rating_count else '-' }}</b><span>Our users ({{ film.user_rating_count }})</span></div>
-  </div>
-</div>
+</section>
 
 <div class="grid">
-  <section class="card">
-    <h2>Overview <span class="badge mongo">MongoDB</span></h2>
-    <p>{{ doc.overview or 'No overview.' }}</p>
-    {% if doc.keywords %}
-    <h3>Keywords</h3>
-    <p class="chips">{% for k in doc.keywords %}<a class="chip" href="{{ url_for('main.discover', mode='keyword', q=k.name) }}">{{ k.name }}</a>{% endfor %}</p>
-    {% endif %}
-    {% if key_crew %}
-    <h3>Key crew</h3>
-    <dl class="crew">{% for job, names in key_crew.items() %}<dt>{{ job }}</dt><dd>{{ names|join(', ') }}</dd>{% endfor %}</dl>
-    {% endif %}
-    <h3>Cast <span class="muted">({{ cast_total }} credited, top 20 shown)</span></h3>
-    <table class="list compact">
-      {% for c in cast %}<tr><td><a href="{{ url_for('main.people', q=c.name) }}">{{ c.name }}</a></td><td class="muted">{{ c.character or '' }}</td></tr>{% endfor %}
-    </table>
-    <p class="note">The whole film, including {{ cast_total }} cast and {{ crew_total }} crew entries, came back as one
-      document from <code>movie_features</code>. The same data from MySQL took two joins
-      ({{ sql_counts[0] }} + {{ sql_counts[1] }} rows): compare the timings at the bottom of the page.</p>
+  <div>
+    <section class="card">
+      <h2>Overview <span class="badge mongo">MongoDB</span></h2>
+      <p style="color: var(--ink-2); max-width: 70ch">{{ doc.overview or 'No overview.' }}</p>
+      {% if doc.keywords %}
+      <h3>Keywords</h3>
+      <p class="chips">{% for k in doc.keywords %}<a class="chip kw" href="{{ url_for('main.discover', mode='keyword', q=k.name) }}">{{ k.name }}</a>{% endfor %}</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Cast <span class="badge mongo">MongoDB</span> <span class="muted" style="font-size: 13px; font-weight: 400">{{ cast_total }} credited, top {{ cast|length }} shown</span></h2>
+      <div class="cast-grid">
+        {% for c in cast %}{% set parts = c.name.split() %}
+          <a class="cast" href="{{ url_for('main.people', q=c.name) }}">
+            <span class="initials" aria-hidden="true">{{ parts[0][0] }}{{ parts[-1][0] if parts|length > 1 }}</span>
+            <span class="who"><b>{{ c.name }}</b><span>{{ c.character or '' }}</span></span>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="note">The whole film, including {{ cast_total }} cast and {{ crew_total }} crew entries, came back as one
+        document from <code>movie_features</code>. The same data from MySQL took two joins
+        ({{ sql_counts[0] }} + {{ sql_counts[1] }} rows): compare the timings at the bottom of the page.</p>
+    </section>
+
     {% if doc.production_companies %}
-    <h3>Production</h3>
-    <p class="muted">{{ doc.production_companies|map(attribute='name')|join(', ') }}
-      {% if doc.production_countries %}<br>{{ doc.production_countries|map(attribute='name')|join(', ') }}{% endif %}</p>
+    <section class="card">
+      <h2>Production</h2>
+      <p style="margin: 0">{{ doc.production_companies|map(attribute='name')|join(', ') }}</p>
+      {% if doc.production_countries %}<p class="muted" style="margin: 4px 0 0">{{ doc.production_countries|map(attribute='name')|join(', ') }}</p>{% endif %}
+    </section>
     {% endif %}
-  </section>
+  </div>
 
   <div>
     <section class="card">
       <h2>Your rating <span class="badge mysql">MySQL</span></h2>
       {% if current_user %}
         <form method="post" action="{{ url_for('main.rate', movie_id=film.movie_id) }}" class="inline">
-          <select name="rating_value" required>
+          <label for="rating_value" class="muted" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Rating</label>
+          <select id="rating_value" name="rating_value" required>
             {% if my_rating is none %}<option value="">Choose…</option>{% endif %}
             {% for r in rating_choices %}<option value="{{ r }}" {{ 'selected' if my_rating is not none and my_rating|float == r }}>{{ '%.1f'|format(r) }} ★</option>{% endfor %}
           </select>
@@ -61,31 +88,27 @@
           <button class="danger">Delete my rating</button>
         </form>
         {% endif %}
+        <p class="note" style="margin-top: 0">0.5 to 5.0 in half stars, enforced by CHECK constraints.</p>
       {% else %}
         <p class="muted">Pick a user in the top bar to rate this film.</p>
       {% endif %}
       {% if ratings %}
+      <h3>Ratings from our users</h3>
       <table class="list compact">
         {% for r in ratings %}<tr><td><a href="{{ url_for('main.user', user_id=r.user_id) }}">{{ r.display_name or r.username }}</a></td>
-          <td class="r">{{ r.rating_value }} ★</td><td class="muted r">{{ (r.updated_at or r.rated_at)|dt }}</td></tr>{% endfor %}
+          <td class="r"><span class="star" aria-hidden="true">★</span> <b>{{ r.rating_value }}</b></td><td class="muted r">{{ (r.updated_at or r.rated_at)|dt }}</td></tr>{% endfor %}
       </table>
       {% endif %}
     </section>
 
     <section class="card">
       <h2>Tags <span class="badge mongo">MongoDB</span></h2>
-      {% if current_user %}
-      <form method="post" action="{{ url_for('main.add_tag', movie_id=film.movie_id) }}" class="inline">
-        <input name="tag" maxlength="100" placeholder="e.g. great visuals" required>
-        <button>Add tag</button>
-      </form>
-      {% endif %}
       {% for t in tags %}
         <div class="tag-row">
           {% if current_user and t.user_id == current_user.user_id %}
             <form method="post" action="{{ url_for('main.edit_tag', tag_id=t._id) }}" class="inline">
-              <input name="tag" value="{{ t.tag }}" maxlength="100" required>
-              <button>Save</button>
+              <input name="tag" value="{{ t.tag }}" maxlength="100" required aria-label="Edit tag">
+              <button class="quiet">Save</button>
             </form>
             <form method="post" action="{{ url_for('main.delete_tag', tag_id=t._id) }}" class="inline">
               <button class="danger">Delete</button>
@@ -95,19 +118,14 @@
           {% endif %}
         </div>
       {% else %}
-        <p class="muted">No tags yet.</p>
+        <p class="muted">No one has tagged this film yet.</p>
       {% endfor %}
-    </section>
-
-    <section class="card">
-      <h2>Numbers <span class="badge mysql">MySQL</span></h2>
-      <dl class="crew">
-        <dt>Released</dt><dd>{{ film.release_date or '-' }}</dd>
-        <dt>Budget</dt><dd>{{ film.budget|money }}</dd>
-        <dt>Revenue</dt><dd>{{ film.revenue|money }}</dd>
-        <dt>Popularity</dt><dd>{{ film.popularity|num(1) }}</dd>
-        <dt>TMDB id</dt><dd>{{ film.movie_id }}</dd>
-      </dl>
+      {% if current_user %}
+      <form method="post" action="{{ url_for('main.add_tag', movie_id=film.movie_id) }}" class="inline" style="margin-top: 8px">
+        <input name="tag" maxlength="100" placeholder="Add a tag, e.g. great visuals" required aria-label="New tag">
+        <button class="quiet">Add tag</button>
+      </form>
+      {% endif %}
     </section>
   </div>
 </div>
