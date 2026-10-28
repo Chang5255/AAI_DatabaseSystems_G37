@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 scripts = [
     ROOT_DIR / "database" / "mongodb" / "create_collections.py",
     ROOT_DIR / "database" / "mongodb" / "import_movie_features.py",
+    ROOT_DIR / "database" / "mongodb" / "import_posters.py",
     ROOT_DIR / "database" / "mongodb" / "create_indexes.py",
 ]
 

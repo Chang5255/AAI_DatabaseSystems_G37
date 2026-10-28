@@ -1,50 +1,77 @@
 {% extends "base.html" %}
 {% block title %}Browse{% endblock %}
 {% block content %}
-<h1>Browse films <span class="badge mysql">MySQL</span></h1>
-<p class="lede">Search 4,803 TMDB films by title, genre, year and language. Ranked by weighted score
-  (<code>v_movie_cards</code>, query Q1).</p>
+<div class="page-head">
+  <h1>Browse films</h1>
+  <span class="badge mysql">MySQL</span>
+  <span class="badge mongo">MongoDB posters</span>
+</div>
+<p class="lede">Search 4,803 TMDB films by title, genre, year and language, ranked by weighted score
+  (<code>v_movie_cards</code>, query Q1). Posters are looked up in MongoDB for the films on the page.</p>
 
 <form class="filters" method="get">
-  <input type="search" name="q" placeholder="Title contains…" value="{{ params.q or '' }}" autofocus>
-  <select name="genre">
-    <option value="">Any genre</option>
-    {% for g_ in genres %}<option {{ 'selected' if params.genre == g_ }}>{{ g_ }}</option>{% endfor %}
-  </select>
-  <input type="number" name="year_from" placeholder="From year" min="1900" max="2030" value="{{ params.year_from or '' }}">
-  <input type="number" name="year_to" placeholder="To year" min="1900" max="2030" value="{{ params.year_to or '' }}">
-  <select name="lang">
-    <option value="">Any language</option>
-    {% for l in languages %}<option value="{{ l.code }}" {{ 'selected' if params.lang == l.code }}>{{ l.code }} ({{ l.films }})</option>{% endfor %}
-  </select>
+  <div class="field grow">
+    <label for="f-q">Title</label>
+    <input id="f-q" type="search" name="q" placeholder="Title contains…" value="{{ params.q or '' }}" autofocus>
+  </div>
+  <div class="field">
+    <label for="f-genre">Genre</label>
+    <select id="f-genre" name="genre">
+      <option value="">Any genre</option>
+      {% for g_ in genres %}<option {{ 'selected' if params.genre == g_ }}>{{ g_ }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-from">From year</label>
+    <input id="f-from" type="number" name="year_from" placeholder="1916" min="1900" max="2030" value="{{ params.year_from or '' }}">
+  </div>
+  <div class="field">
+    <label for="f-to">To year</label>
+    <input id="f-to" type="number" name="year_to" placeholder="2017" min="1900" max="2030" value="{{ params.year_to or '' }}">
+  </div>
+  <div class="field">
+    <label for="f-lang">Language</label>
+    <select id="f-lang" name="lang">
+      <option value="">Any language</option>
+      {% for l in languages %}<option value="{{ l.code }}" {{ 'selected' if params.lang == l.code }}>{{ l.code }} ({{ l.films }})</option>{% endfor %}
+    </select>
+  </div>
   <button>Search</button>
   <a class="reset" href="{{ url_for('main.browse') }}">Clear</a>
+  <div class="chips">
+    <span class="muted" style="font-size: 13px; margin-right: 4px">Genres</span>
+    <a class="chip {{ 'on' if not params.genre }}" href="{{ url_for('main.browse') }}">All</a>
+    {% for g_ in genres %}<a class="chip {{ 'on' if params.genre == g_ }}" href="{{ url_for('main.browse', genre=g_) }}">{{ g_ }}</a>{% endfor %}
+  </div>
 </form>
 
 {% if rows %}
-<table class="list">
-  <thead><tr><th>Title</th><th>Year</th><th>Genres</th><th>Director</th>
-    <th class="r">TMDB</th><th class="r">Votes</th><th class="r">Our users</th></tr></thead>
-  <tbody>
-  {% for m in rows %}
-    <tr>
-      <td><a href="{{ url_for('main.movie', movie_id=m.movie_id, **{'from': 'browse'}) }}">{{ m.title }}</a></td>
-      <td>{{ m.release_year or '-' }}</td>
-      <td class="muted">{{ m.genres or '' }}</td>
-      <td class="muted">{{ m.directors or '' }}</td>
-      <td class="r">{{ m.tmdb_score|num }}</td>
-      <td class="r">{{ '{:,}'.format(m.vote_count) if m.vote_count else '-' }}</td>
-      <td class="r">{% if m.user_rating_count %}{{ m.user_avg_rating|num(2) }} <span class="muted">({{ m.user_rating_count }})</span>{% else %}-{% endif %}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-<div class="pager">
-  {% set base = request.args.to_dict() %}
-  {% if page > 1 %}{% set _ = base.update({'page': page - 1}) %}<a href="{{ url_for('main.browse', **base) }}">← Previous</a>{% endif %}
-  <span>Page {{ page }}</span>
-  {% if has_next %}{% set _ = base.update({'page': page + 1}) %}<a href="{{ url_for('main.browse', **base) }}">Next →</a>{% endif %}
+<div class="section-head">
+  <h2>{{ 'Results' if params.values()|select|list else 'Top rated' }}</h2>
+  <span class="muted" style="font-size: 13px">Page {{ page }} · ranked by weighted score</span>
 </div>
+<div class="film-grid">
+  {% for m in rows %}
+    <a class="film" href="{{ url_for('main.movie', movie_id=m.movie_id, **{'from': 'browse'}) }}">
+      <div class="art">
+        {% set p = posters.get(m.movie_id)|poster('w342') %}
+        {% if p %}<img class="poster" src="{{ p }}" alt="Poster for {{ m.title }}" loading="lazy">{% else %}<div class="poster none">No poster</div>{% endif %}
+        <span class="rank">#{{ offset + loop.index }}</span>
+      </div>
+      <span class="title">{{ m.title }}</span>
+      <span class="sub">{{ m.release_year or '-' }}{% if m.directors %} · {{ m.directors }}{% endif %}</span>
+      <span class="score"><span class="star" aria-hidden="true">★</span><b>{{ m.tmdb_score|num }}</b>
+        <span class="muted">{{ '{:,}'.format(m.vote_count) if m.vote_count else 'no' }} votes</span></span>
+      <span class="users">{% if m.user_rating_count %}Our users {{ m.user_avg_rating|num(2) }} ({{ m.user_rating_count }}){% else %}No user ratings yet{% endif %}</span>
+    </a>
+  {% endfor %}
+</div>
+<nav class="pager" aria-label="Pages">
+  {% set base = request.args.to_dict() %}
+  {% if page > 1 %}{% set _ = base.update({'page': page - 1}) %}<a href="{{ url_for('main.browse', **base) }}">← Previous</a>{% else %}<span class="off">← Previous</span>{% endif %}
+  <span>Page {{ page }}</span>
+  {% if has_next %}{% set _ = base.update({'page': page + 1}) %}<a href="{{ url_for('main.browse', **base) }}">Next →</a>{% else %}<span class="off">Next →</span>{% endif %}
+</nav>
 {% else %}
 <p class="empty">No films match those filters.</p>
 {% endif %}

@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Movie Discovery{% endblock %} · Team 37</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -39,6 +41,8 @@
     {% endfor %}
   {% endwith %}
   {% block content %}{% endblock %}
+  <p class="credit">Film data and posters from <a href="https://www.themoviedb.org/">TMDB</a>.
+    This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
 </main>
 
 {% if g.timings %}
@@ -46,9 +50,9 @@
   <details>
     <summary>This page ran {{ g.timings|length }} database calls ·
       <span class="badge mysql">MySQL</span>
-      {{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MySQL')|sum(attribute='ms')) }} ms ·
+      <b>{{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MySQL')|sum(attribute='ms')) }} ms</b> ·
       <span class="badge mongo">MongoDB</span>
-      {{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MongoDB')|sum(attribute='ms')) }} ms
+      <b>{{ '%.1f'|format(g.timings|selectattr('db', 'equalto', 'MongoDB')|sum(attribute='ms')) }} ms</b>
     </summary>
     <table>
       <tr><th>Database</th><th>What</th><th class="r">Rows / docs</th><th class="r">ms</th></tr>

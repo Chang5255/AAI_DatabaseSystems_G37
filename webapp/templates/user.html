@@ -1,72 +1,103 @@
 {% extends "base.html" %}
 {% block title %}{{ profile.display_name or profile.username }}{% endblock %}
 {% block content %}
-<h1>{{ profile.display_name or profile.username }} <span class="year">@{{ profile.username }}</span></h1>
-<p class="muted">User {{ profile.user_id }} · joined {{ profile.created_at|dt }}</p>
+{% set name = profile.display_name or profile.username %}
+<section class="profile-head">
+  <span class="avatar" aria-hidden="true">{% for w in name.split()[:2] %}{{ w[0]|upper }}{% endfor %}</span>
+  <div style="flex: 1 1 280px">
+    <h1>{{ name }}</h1>
+    <p class="muted" style="margin: 6px 0 0">@{{ profile.username }} · user {{ profile.user_id }} · joined {{ profile.created_at|dt }}</p>
+  </div>
+</section>
 
-<div class="grid">
+<div class="stats">
+  <div><b>{{ ratings|length }}</b><span>Ratings <span class="db-mysql">· MySQL</span></span></div>
+  <div><b>{{ '%.2f'|format((ratings|sum(attribute='rating_value')) / ratings|length) if ratings else '-' }}</b>
+    <span>Average rating <span class="db-mysql">· MySQL</span></span></div>
+  <div><b>{{ fav_genres[0].genre if fav_genres else '-' }}</b>
+    <span>Favourite genre{% if fav_genres %}, {{ fav_genres[0].avg_rating }}★ avg over {{ fav_genres[0].ratings_in_genre }}{% endif %} <span class="db-mysql">· MySQL Q14</span></span></div>
+  <div><b>{{ activity|length }}</b><span>Recent logged events <span class="db-mongo">· MongoDB</span></span></div>
+</div>
+
+<div class="section-head">
+  <h2>Recommended for {{ name }} <span class="badge mongo">MongoDB</span></h2>
+  <form method="post" action="{{ url_for('main.recommend', user_id=profile.user_id) }}" class="inline" style="margin: 0">
+    {% if recs %}<span class="muted" style="font-size: 13px">{{ latest.algorithm }} · generated {{ latest.generated_at|dt }} UTC</span>{% endif %}
+    <button>{{ 'Regenerate' if recs else 'Generate recommendations' }}</button>
+  </form>
+</div>
+{% if recs %}
+<div class="film-grid">
+  {% for r in recs %}{% set f = titles.get(r.movie_id) %}
+    <a class="film" href="{{ url_for('main.movie', movie_id=r.movie_id, **{'from': 'recommendations'}) }}">
+      <div class="art">
+        {% set p = posters.get(r.movie_id)|poster('w342') %}
+        {% if p %}<img class="poster" src="{{ p }}" alt="Poster for {{ f.title if f else r.movie_id }}" loading="lazy">{% else %}<div class="poster none">No poster</div>{% endif %}
+        <span class="rank match">{{ '%.0f'|format(r.score * 100) }}% match</span>
+      </div>
+      <span class="title">{{ f.title if f else r.movie_id }}</span>
+      <span class="users">Shares: {{ r.matched_keywords[:3]|join(', ') }}</span>
+    </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">No recommendations yet. View a few films as this user, then generate them. They are films
+  sharing keywords with the ones this user viewed.</p>
+{% endif %}
+
+<div class="grid" style="margin-top: 40px">
   <div>
     <section class="card">
-      <h2>Recommended for this user <span class="badge mongo">MongoDB</span></h2>
-      <form method="post" action="{{ url_for('main.recommend', user_id=profile.user_id) }}" class="inline">
-        <button>Generate new recommendations</button>
-      </form>
-      {% if recs %}
-        <p class="note">Algorithm: {{ latest.algorithm }} · generated {{ latest.generated_at|dt }} UTC.
-          Films sharing keywords with ones this user viewed.</p>
-        <table class="list compact">
-          {% for r in recs %}{% set f = titles.get(r.movie_id) %}
-          <tr><td><a href="{{ url_for('main.movie', movie_id=r.movie_id, **{'from': 'recommendations'}) }}">{{ f.title if f else r.movie_id }}</a></td>
-              <td class="r">{{ '%.0f'|format(r.score * 100) }}%</td>
-              <td class="muted">{{ r.matched_keywords[:5]|join(', ') }}</td></tr>
-          {% endfor %}
-        </table>
-      {% else %}
-        <p class="muted">None yet. View a few films as this user, then generate.</p>
-      {% endif %}
-    </section>
-
-    <section class="card">
-      <h2>Ratings <span class="badge mysql">MySQL</span> <span class="muted">· {{ ratings|length }}</span></h2>
-      {% if fav_genres %}<p class="note">Favourite genres (rated 3+ times):
+      <h2>Ratings <span class="badge mysql">MySQL</span> <span class="muted" style="font-size: 13px; font-weight: 400">{{ ratings|length }}</span></h2>
+      {% if fav_genres %}<p class="note" style="margin-top: 0">Favourite genres (rated 3+ times):
         {% for fg in fav_genres %}<b>{{ fg.genre }}</b> {{ fg.avg_rating }}★ ({{ fg.ratings_in_genre }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+      <div class="scroll">
       <table class="list compact">
         {% for r in ratings %}
         <tr><td><a href="{{ url_for('main.movie', movie_id=r.movie_id) }}">{{ r.title }}</a> <span class="muted">{{ r.release_year or '' }}</span></td>
-            <td class="r">{{ r.rating_value }} ★</td>
-            <td class="muted r">{{ (r.updated_at or r.rated_at)|dt }}</td></tr>
+            <td class="r" style="white-space: nowrap"><span class="star" aria-hidden="true">★</span> <b>{{ r.rating_value }}</b></td>
+            <td class="muted r" style="white-space: nowrap">{{ (r.updated_at or r.rated_at)|dt }}</td></tr>
         {% else %}<tr><td class="muted">No ratings yet.</td></tr>{% endfor %}
       </table>
+      </div>
     </section>
   </div>
 
   <div>
     <section class="card">
+      <h2>Recent activity <span class="badge mongo">MongoDB</span></h2>
+      <ol class="activity">
+        {% for a in activity %}{% set f = titles.get(a.movie_id) if a.movie_id else none %}
+        <li>
+          {% set p = posters.get(a.movie_id)|poster('w92') if a.movie_id else none %}
+          {% if p %}<img class="poster" src="{{ p }}" alt="" loading="lazy">
+          {% else %}<span class="icon" aria-hidden="true">{{ '⌕' if a.event_type == 'search' else '•' }}</span>{% endif %}
+          <span class="what">
+            <span style="font-size: 14px; color: var(--ink)">
+              {% if f %}<a href="{{ url_for('main.movie', movie_id=a.movie_id) }}">{{ f.title }}</a>{% endif %}
+              {% if a.metadata and a.metadata.query %}“{{ a.metadata.query }}” → {{ a.metadata.result_count }} results{% endif %}
+              {% if a.metadata and a.metadata.rating %}{{ a.metadata.rating }} ★{% endif %}
+            </span>
+            <span><span class="pill">{{ a.event_type }}</span> {{ a.timestamp|dt }}</span>
+          </span>
+        </li>
+        {% else %}<li class="muted">No activity logged.</li>{% endfor %}
+      </ol>
+    </section>
+
+    <section class="card">
       <h2>Tags <span class="badge mongo">MongoDB</span></h2>
       {% for t in tags %}{% set f = titles.get(t.movie_id) %}
         <div class="tag-row"><span class="chip">{{ t.tag }}</span> on
           <a href="{{ url_for('main.movie', movie_id=t.movie_id) }}">{{ f.title if f else t.movie_id }}</a></div>
-      {% else %}<p class="muted">No tags yet.</p>{% endfor %}
-    </section>
-
-    <section class="card">
-      <h2>Recent activity <span class="badge mongo">MongoDB</span></h2>
-      <table class="list compact">
-        {% for a in activity %}{% set f = titles.get(a.movie_id) if a.movie_id else none %}
-        <tr><td class="muted">{{ a.timestamp|dt }}</td>
-            <td><span class="pill">{{ a.event_type }}</span></td>
-            <td>{% if f %}<a href="{{ url_for('main.movie', movie_id=a.movie_id) }}">{{ f.title }}</a>{% endif %}
-                {% if a.metadata and a.metadata.query %}“{{ a.metadata.query }}” → {{ a.metadata.result_count }}{% endif %}
-                {% if a.metadata and a.metadata.rating %}{{ a.metadata.rating }} ★{% endif %}</td></tr>
-        {% else %}<tr><td class="muted">No activity logged.</td></tr>{% endfor %}
-      </table>
+      {% else %}<p class="muted">No tags yet. Tags are added from a film's page.</p>{% endfor %}
     </section>
 
     <section class="card">
       <h2>Edit profile <span class="badge mysql">MySQL</span></h2>
       <form method="post" action="{{ url_for('main.edit_user', user_id=profile.user_id) }}" class="inline">
-        <input name="display_name" value="{{ profile.display_name or '' }}" placeholder="Display name">
-        <button>Save</button>
+        <input name="display_name" value="{{ profile.display_name or '' }}" placeholder="Display name" aria-label="Display name">
+        <button class="quiet">Save</button>
       </form>
       <form method="post" action="{{ url_for('main.delete_user', user_id=profile.user_id) }}" class="inline"
             onsubmit="return confirm('Delete this user, their ratings, tags, activity and recommendations?');">
