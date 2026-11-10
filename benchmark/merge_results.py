@@ -1,0 +1,147 @@
+"""
+INF2003 Group Project - Team 37
+benchmark/merge_results.py : one table per experiment, for the report
+
+Each benchmark writes its own CSV. This collects them into
+results/combined_experiment1.csv and prints every experiment as a
+markdown table that can be pasted straight into the report or the
+slides, with the MySQL and MongoDB rows interleaved so the comparison
+is readable.
+
+It reads only; nothing is measured here. Run it after the benchmarks:
+
+    python benchmark/mysql_bench.py
+    python benchmark/mongo_bench.py
+    python benchmark/mongo_index_bench.py
+    python benchmark/ratings_scaling.py
+    python benchmark/throughput_bench.py
+    python benchmark/txn_cost_bench.py
+    python benchmark/load_storage_bench.py
+    python benchmark/merge_results.py
+"""
+
+import csv
+
+import harness
+
+EXPERIMENTS = [
+    {
+        "title": "Experiment 1 - same cast and crew data: normalised vs embedded",
+        "files": ["mysql_experiment1_summary.csv", "mongo_experiment1_summary.csv"],
+        "columns": ["database", "task", "median_ms", "p95_ms", "mean_ms",
+                    "avg_rows", "n"],
+        "sort": lambda row: (row.get("task", ""), row.get("database", "")),
+        "combined": "combined_experiment1.csv",
+    },
+    {
+        "title": "Experiment 2 - MySQL ratings lookup as the table grows",
+        "files": ["ratings_scaling_summary.csv"],
+        "columns": None,
+    },
+    {
+        "title": "Experiment 3 - MongoDB indexes (multikey and unique)",
+        "files": ["mongo_index_summary.csv"],
+        "columns": ["query", "index_state", "median_ms", "p95_ms",
+                    "avg_docs_examined", "avg_keys_examined", "plan",
+                    "speedup_vs_no_index"],
+    },
+    {
+        "title": "Experiment 4 - throughput under concurrency",
+        "files": ["throughput_summary.csv"],
+        "columns": ["workload", "database", "workers", "ops_per_second",
+                    "median_ms", "p95_ms", "operations"],
+        "sort": lambda row: (row.get("workload", ""), row.get("database", ""),
+                             int(row.get("workers", 0))),
+    },
+    {
+        "title": "Experiment 5 - what a commit costs",
+        "files": ["txn_cost_summary.csv"],
+        "columns": ["database", "variant", "best_seconds", "rows_per_second",
+                    "ms_per_row", "speedup_vs_slowest_in_db"],
+    },
+    {
+        "title": "Experiment 6a - storage",
+        "files": ["storage_summary.csv"],
+        "columns": ["database", "object", "records", "data_mb", "index_mb",
+                    "total_mb"],
+    },
+    {
+        "title": "Experiment 6b - load time",
+        "files": ["load_summary.csv"],
+        "columns": ["database", "units", "unit_name", "seconds",
+                    "units_per_second", "size_mb", "method"],
+    },
+]
+
+
+def read_csv(name):
+    path = harness.RESULTS_DIR / name
+    if not path.exists() or not path.read_text(encoding="utf-8").strip():
+        return None
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def markdown_table(rows, columns):
+    header = "| " + " | ".join(c.replace("_", " ") for c in columns) + " |"
+    divider = "|" + "|".join("---" for _ in columns) + "|"
+    body = ["| " + " | ".join(str(row.get(c, "")) for c in columns) + " |"
+            for row in rows]
+    return "\n".join([header, divider] + body)
+
+
+def main():
+    if not harness.RESULTS_DIR.exists():
+        print(f"{harness.RESULTS_DIR} does not exist yet: run a benchmark first.")
+        return
+
+    output = []
+    for experiment in EXPERIMENTS:
+        rows, missing = [], []
+        for name in experiment["files"]:
+            part = read_csv(name)
+            if part is None:
+                missing.append(name)
+            else:
+                rows += part
+
+        print("\n" + "=" * 70)
+        print(experiment["title"])
+        print("=" * 70)
+
+        if not rows:
+            print(f"  not run yet (missing {', '.join(missing)})")
+            continue
+        if missing:
+            print(f"  note: {', '.join(missing)} is missing, so this table is "
+                  f"incomplete\n")
+
+        if experiment.get("sort"):
+            try:
+                rows.sort(key=experiment["sort"])
+            except (ValueError, TypeError):
+                pass
+
+        columns = experiment["columns"] or list(rows[0].keys())
+        columns = [c for c in columns if any(row.get(c) not in (None, "")
+                                             for row in rows)]
+        table = markdown_table(rows, columns)
+        print(table)
+
+        output.append(f"## {experiment['title']}\n\n{table}\n")
+
+        if experiment.get("combined"):
+            harness.write_csv(experiment["combined"], rows)
+            print(f"\n  also written to results/{experiment['combined']}")
+
+    if output:
+        path = harness.write_text("ALL_RESULTS.md",
+                                  "# INF2003 Team 37 - benchmark results\n\n"
+                                  "Generated by benchmark/merge_results.py. Every\n"
+                                  "number comes from the CSVs in this folder.\n\n"
+                                  + "\n".join(output))
+        print(f"\n\nAll tables written to {path}")
+
+
+if __name__ == "__main__":
+    main()

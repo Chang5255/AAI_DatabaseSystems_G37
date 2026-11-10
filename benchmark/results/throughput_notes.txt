@@ -1,0 +1,5 @@
+MySQL 8.0.45 | MongoDB 9.0.4
+Python 3.13.0 on Windows-11-10.0.26200-SP0
+CPU count 16
+Run at 2026-11-10T18:38:09
+duration=5.0s levels=[1, 2, 4, 8, 16]

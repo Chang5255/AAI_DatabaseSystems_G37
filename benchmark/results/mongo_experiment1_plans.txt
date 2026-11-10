@@ -1,0 +1,38 @@
+MongoDB 9.0.4
+Python 3.13.0 on Windows-11-10.0.26200-SP0
+Run at 2026-11-10T17:37:00
+samples=300 repeats=5 warmup=1
+
+===== T1 find_one, projection {cast, crew} =====
+plan            : EXPRESS_IXSCAN (idx_movie_id_unique)
+nReturned       : 1
+docsExamined    : 1
+keysExamined    : 1
+executionTimeMs : 0
+
+===== T2 find_one, no projection =====
+plan            : EXPRESS_IXSCAN (idx_movie_id_unique)
+nReturned       : 1
+docsExamined    : 1
+keysExamined    : 1
+executionTimeMs : 0
+
+===== T3 find on cast.person_id (multikey), projection cast.$ =====
+plan            : PROJECTION_DEFAULT <- FETCH <- IXSCAN (idx_cast_person_id)
+nReturned       : 21
+docsExamined    : 21
+keysExamined    : 21
+executionTimeMs : 0
+
+===== T4 rename reach =====
+documents containing this person in cast : 21
+documents containing this person in crew : 0
+documents MySQL must update              : 1 (people.name)
+
+===== indexes on movie_features =====
+  _id_: {'_id': 1}
+  idx_overview_text: {'_fts': 'text', '_ftsx': 1}
+  idx_movie_id_unique: {'movie_id': 1}  [unique]
+  idx_keywords_name: {'keywords.name': 1}
+  idx_cast_person_id: {'cast.person_id': 1}
+  idx_crew_person_id: {'crew.person_id': 1}

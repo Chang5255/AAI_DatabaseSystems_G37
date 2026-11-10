@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Co-star network{% endblock %}
+{% block content %}
+<h1>Co-star network <span class="badge mongo">MongoDB</span></h1>
+<p class="lede">How are two actors connected? This walks a graph built from the <code>cast</code> arrays
+  of <code>movie_features</code>, using <code>$graphLookup</code> — recursive traversal inside the
+  database, with the depth as a parameter rather than one <code>JOIN</code> per hop written in advance.</p>
+
+{% if missing %}
+<section class="card">
+  <h2>Not built yet</h2>
+  <p>The traversal needs an adjacency list. Run
+    <code>python database/mongodb/build_costar_graph.py</code> to derive the
+    <code>people_graph</code> collection from the film documents, then reload.</p>
+</section>
+{% else %}
+
+<section class="card">
+  <form method="get" action="{{ url_for('main.network') }}" class="inline">
+    <input name="a" value="{{ name_a }}" placeholder="First actor, e.g. Tom Hanks" required>
+    <input name="b" value="{{ name_b }}" placeholder="Second actor, e.g. Scarlett Johansson">
+    <label class="muted" for="degrees">max degrees</label>
+    <select id="degrees" name="degrees">
+      {% for d in [1, 2, 3, 4] %}<option value="{{ d }}" {{ 'selected' if d == max_degrees }}>{{ d }}</option>{% endfor %}
+    </select>
+    <button>Search</button>
+  </form>
+  {% if name_a and not person_a %}<p class="note">No one in the graph matches “{{ name_a }}”. Only
+    top-billed cast members are in it (see <code>build_costar_graph.py</code>).</p>{% endif %}
+  {% if name_b and not person_b %}<p class="note">No one in the graph matches “{{ name_b }}”.</p>{% endif %}
+  {% if matches_a and matches_a|length > 1 %}
+    <p class="note">Using <b>{{ person_a.name }}</b>. Also matched:
+      {% for m in matches_a[1:6] %}{{ m.name }}{{ ', ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+</section>
+
+{% if path %}
+<section class="card">
+  <h2>Shortest chain</h2>
+  {% if path.degrees == 0 %}
+    <p>Those are the same person.</p>
+  {% elif path.degrees %}
+    <p style="font-size: 18px; line-height: 2">
+      {% for p in path.path %}
+        <a href="{{ url_for('main.people', q=p.name) }}">{{ p.name }}</a>{% if not loop.last %}
+        <span class="muted">→</span>{% endif %}
+      {% endfor %}
+    </p>
+    <p class="muted">{{ path.degrees }} degree{{ 's' if path.degrees != 1 }} of separation ·
+      {{ path.searched }} people examined{{ ' · search was capped' if path.truncated }}</p>
+  {% else %}
+    <p>No chain within {{ max_degrees }} degrees ({{ path.searched }} people examined).</p>
+  {% endif %}
+  <p class="note">The chain comes from a breadth-first search: one indexed <code>$in</code> lookup per
+    degree, so the number of round trips is bounded by the depth. <code>$graphLookup</code> answers
+    “who is reachable” but does not record which route it took, so it cannot produce the chain itself.</p>
+</section>
+{% endif %}
+
+{% if together %}
+<section class="card">
+  <h2>Films they both appear in</h2>
+  <table class="list compact">
+    <thead><tr><th>Film</th><th>{{ person_a.name }}</th><th>{{ person_b.name }}</th></tr></thead>
+    <tbody>
+    {% for f in together %}{% set film = titles.get(f.movie_id) %}
+      <tr><td><a href="{{ url_for('main.movie', movie_id=f.movie_id) }}">{{ film.title if film else f.movie_id }}</a></td>
+          <td class="muted">{{ f.role_a or '-' }}</td>
+          <td class="muted">{{ f.role_b or '-' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">One query: <code>find({"cast.person_id": {"$all": [a, b]}})</code>, served by the
+    multikey index on <code>cast.person_id</code>. In MySQL the same question is a self-join of
+    <code>movie_cast</code> to itself.</p>
+</section>
+{% endif %}
+
+{% if degrees_rows %}
+<section class="card">
+  <h2>The network around {{ person_a.name }} <span class="badge mongo">$graphLookup</span></h2>
+  <p class="muted">{{ person_a.film_count }} top-billed films · {{ person_a.costar_ids|length }} direct co-stars</p>
+  <table class="list">
+    <thead><tr><th>Distance</th><th class="r">People</th><th>Best known</th></tr></thead>
+    <tbody>
+    {% for row in degrees_rows %}
+      <tr><td>{{ row.degrees }} degree{{ 's' if row.degrees != 1 }} away</td>
+          <td class="r">{{ row.people }}</td>
+          <td class="muted">{{ row.examples|join(', ') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <details class="source">
+    <summary>Show the pipeline</summary>
+    <pre>{"$graphLookup": {
+    "from": "people_graph",
+    "startWith": "$costar_ids",      // seed: this person's co-stars
+    "connectFromField": "costar_ids", // follow their co-stars
+    "connectToField": "person_id",    // matched against person_id (indexed)
+    "as": "network",
+    "maxDepth": 1,                    // 1 hop beyond the seed = 2 degrees
+    "depthField": "depth",            // how far each person was found
+    "restrictSearchWithMatch": {"film_count": {"$gte": 2}}
+}}</pre>
+  </details>
+  <p class="note"><b>The honest limitation:</b> <code>$graphLookup</code> collects every match into an
+    array inside <em>one</em> document, so a wide traversal can hit MongoDB's 16 MB document limit.
+    That is why the walk is restricted to people with at least two films and capped at two degrees,
+    and it is the reason a dedicated graph database (Neo4j, from lecture 8) exists.</p>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

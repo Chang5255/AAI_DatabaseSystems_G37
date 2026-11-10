@@ -1,0 +1,9 @@
+database,task,description,n,mean_ms,median_ms,p95_ms,min_ms,max_ms,stdev_ms,avg_rows
+MongoDB,T1_movie_cast_crew_2q,"One movie's cast + crew, find_one with a projection",1500,0.5124,0.4853,0.7833,0.2537,1.8255,0.157,50.9
+MySQL,T1_movie_cast_crew_2q,"One movie's cast + crew, two SQL queries",1500,1.5593,1.3498,3.0579,0.5549,6.0862,0.7212,50.9
+MongoDB,T2_movie_cast_crew_json,"One movie's whole document, find_one with no projection",1500,0.4649,0.4495,0.6637,0.2269,1.6957,0.1388,50.9
+MySQL,T2_movie_cast_crew_json,"One movie's cast + crew, one SQL statement returning JSON",1500,1.1761,0.9767,2.6229,0.3808,5.8791,0.687,50.9
+MongoDB,T3_films_by_actor,All films for one actor,1500,0.7042,0.6639,1.0542,0.3793,2.4481,0.2135,5.9
+MySQL,T3_films_by_actor,All films for one actor,1500,0.425,0.3931,0.6952,0.2139,1.2823,0.1425,5.9
+MongoDB,T4_rename_person,Rename one person (every embedded copy),1500,2.6184,1.8131,4.6686,0.8586,47.5927,4.1958,6.1
+MySQL,T4_rename_person,Rename one person (1 row in people),1500,5.5352,5.3259,8.1876,2.4888,17.6873,1.724,1.0

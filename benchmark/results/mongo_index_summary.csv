@@ -1,0 +1,7 @@
+database,query,description,index_state,index_name,collection_docs,n,mean_ms,median_ms,p95_ms,min_ms,max_ms,stdev_ms,avg_rows,avg_docs_examined,avg_keys_examined,plan,index_build_ms,speedup_vs_no_index
+MongoDB,films_by_actor,All films one actor appears in (multikey on cast.person_id),no index,,4803,250,27.4396,23.8333,45.5587,20.5933,53.9909,7.7257,8.9,4803.0,0.0,PROJECTION_DEFAULT <- COLLSCAN,,
+MongoDB,films_by_actor,All films one actor appears in (multikey on cast.person_id),indexed,idx_cast_person_id,4803,250,0.567,0.5481,0.8866,0.313,2.149,0.1878,8.9,8.9,8.9,PROJECTION_DEFAULT <- FETCH <- IXSCAN (idx_cast_person_id) multikey,199.3,43.48
+MongoDB,film_by_id,One film by its id (the join key to MySQL),no index,,4803,250,1.6472,1.5106,3.3667,0.3721,5.3062,0.8583,1.0,2125.7,0.0,LIMIT <- PROJECTION_SIMPLE <- COLLSCAN,,
+MongoDB,film_by_id,One film by its id (the join key to MySQL),indexed,idx_movie_id_unique,4803,250,0.4781,0.4665,0.7089,0.2827,1.0283,0.1283,1.0,1.0,1.0,EXPRESS_IXSCAN (idx_movie_id_unique),31.6,3.24
+MongoDB,films_by_keyword,Films carrying one keyword (multikey on keywords.name),no index,,4803,250,14.0836,13.9574,21.394,2.6031,25.4133,4.415,76.2,4297.0,0.0,LIMIT <- PROJECTION_SIMPLE <- COLLSCAN,,
+MongoDB,films_by_keyword,Films carrying one keyword (multikey on keywords.name),indexed,idx_keywords_name,4803,250,0.5583,0.5434,0.8253,0.3139,1.2628,0.1364,76.2,76.2,76.2,LIMIT <- PROJECTION_SIMPLE <- FETCH <- IXSCAN (idx_keywords_name) multikey,88.3,25.69

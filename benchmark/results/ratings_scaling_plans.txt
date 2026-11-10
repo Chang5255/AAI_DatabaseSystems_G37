@@ -1,0 +1,39 @@
+MySQL 8.0.45
+Run at 2026-11-10T18:57:40
+lookups=100 repeats=5 warmup=1 seed=37
+
+===== 1,000 rows | WHERE movie_id = 49519 | NO index =====
+-> Filter: (ratings_bench.movie_id = 49519)  (cost=101 rows=100) (actual time=0.242..0.315 rows=2 loops=1)
+    -> Table scan on ratings_bench  (cost=101 rows=1000) (actual time=0.0514..0.266 rows=1000 loops=1)
+
+
+===== 1,000 rows | WHERE movie_id = 49519 | WITH index =====
+-> Index lookup on ratings_bench using idx_bench_movie (movie_id=49519)  (cost=0.7 rows=2) (actual time=0.0236..0.0259 rows=2 loops=1)
+
+
+===== 10,000 rows | WHERE movie_id = 11687 | NO index =====
+-> Filter: (ratings_bench.movie_id = 11687)  (cost=1024 rows=1000) (actual time=0.994..2.26 rows=1 loops=1)
+    -> Table scan on ratings_bench  (cost=1024 rows=10000) (actual time=0.226..1.96 rows=10000 loops=1)
+
+
+===== 10,000 rows | WHERE movie_id = 11687 | WITH index =====
+-> Index lookup on ratings_bench using idx_bench_movie (movie_id=11687)  (cost=0.35 rows=1) (actual time=0.0152..0.017 rows=1 loops=1)
+
+
+===== 100,000 rows | WHERE movie_id = 20309 | NO index =====
+-> Filter: (ratings_bench.movie_id = 20309)  (cost=10975 rows=10854) (actual time=12.6..21 rows=2 loops=1)
+    -> Table scan on ratings_bench  (cost=10975 rows=108543) (actual time=1.16..18.1 rows=100000 loops=1)
+
+
+===== 100,000 rows | WHERE movie_id = 20309 | WITH index =====
+-> Index lookup on ratings_bench using idx_bench_movie (movie_id=20309)  (cost=0.7 rows=2) (actual time=0.0237..0.0258 rows=2 loops=1)
+
+
+===== 1,000,000 rows | WHERE movie_id = 48138 | NO index =====
+-> Filter: (ratings_bench.movie_id = 48138)  (cost=129469 rows=128452) (actual time=1.52..290 rows=404 loops=1)
+    -> Table scan on ratings_bench  (cost=129469 rows=1.28e+6) (actual time=0.974..246 rows=1e+6 loops=1)
+
+
+===== 1,000,000 rows | WHERE movie_id = 48138 | WITH index =====
+-> Index lookup on ratings_bench using idx_bench_movie (movie_id=48138)  (cost=141 rows=404) (actual time=1.04..1.65 rows=404 loops=1)
+

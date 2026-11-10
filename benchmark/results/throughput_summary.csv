@@ -1,0 +1,21 @@
+workload,database,method,workers,duration_s,operations,ops_per_second,median_ms,p95_ms,mean_ms,max_ms,errors
+read-film,MySQL,2 joins on movie_cast / movie_crew,1,5.0,2625,524.8,1.4301,3.5123,1.8901,50.1622,0
+read-film,MySQL,2 joins on movie_cast / movie_crew,2,5.03,6069,1205.4,1.4158,3.2167,1.6302,33.7158,0
+read-film,MySQL,2 joins on movie_cast / movie_crew,4,5.0,4608,920.7,3.4351,10.0704,4.275,23.0575,0
+read-film,MySQL,2 joins on movie_cast / movie_crew,8,5.02,3820,761.5,8.0118,25.0904,10.2166,55.5277,0
+read-film,MySQL,2 joins on movie_cast / movie_crew,16,5.04,2765,548.9,21.1254,73.8869,28.3076,172.7183,0
+read-film,MongoDB,find_one on movie_id (embedded arrays),1,5.0,7837,1567.0,0.5913,0.8886,0.6331,39.3109,0
+read-film,MongoDB,find_one on movie_id (embedded arrays),2,5.0,16432,3285.7,0.5846,0.9461,0.6075,5.2209,0
+read-film,MongoDB,find_one on movie_id (embedded arrays),4,5.0,23736,4745.4,0.8037,1.3353,0.8414,5.9454,0
+read-film,MongoDB,find_one on movie_id (embedded arrays),8,5.0,24031,4803.0,1.534,3.0074,1.6513,17.0961,0
+read-film,MongoDB,find_one on movie_id (embedded arrays),16,5.01,23789,4751.3,3.0928,6.4115,3.3547,17.4313,0
+write-rating,MySQL,upsert into ratings (constraints + audit trigger),1,5.0,1735,346.9,2.8271,4.9877,2.8589,38.8784,0
+write-rating,MySQL,upsert into ratings (constraints + audit trigger),2,5.0,2709,541.4,3.9345,5.5737,3.6251,36.3704,0
+write-rating,MySQL,upsert into ratings (constraints + audit trigger),4,5.01,3582,715.5,4.7951,9.9549,5.3849,49.3174,0
+write-rating,MySQL,upsert into ratings (constraints + audit trigger),8,5.01,4426,883.4,8.1736,15.6743,8.48,78.4572,0
+write-rating,MySQL,upsert into ratings (constraints + audit trigger),16,5.02,8129,1619.0,9.6776,18.2665,9.5714,44.9823,0
+write-rating,MongoDB,insert_one into user_activity_logs,1,5.0,12626,2524.7,0.3571,0.5724,0.3952,17.2094,0
+write-rating,MongoDB,insert_one into user_activity_logs,2,5.0,28065,5612.0,0.331,0.473,0.3557,38.5586,0
+write-rating,MongoDB,insert_one into user_activity_logs,4,5.0,32117,6421.5,0.5848,0.9681,0.6217,26.3423,0
+write-rating,MongoDB,insert_one into user_activity_logs,8,5.0,31228,6242.0,1.1681,2.3343,1.2785,48.6163,0
+write-rating,MongoDB,insert_one into user_activity_logs,16,5.01,31953,6382.9,2.2877,4.7864,2.4989,22.2963,0

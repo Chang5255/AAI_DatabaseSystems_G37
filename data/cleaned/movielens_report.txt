@@ -1,0 +1,84 @@
+====================================================================
+INF2003 Team 37 - real ratings from MovieLens 25M
+run at 2026-11-10T02:52:57
+====================================================================
+
+SOURCE
+  MovieLens 25M (GroupLens, University of Minnesota), joined to our
+  TMDB catalogue on links.csv tmdbId. Research use; cite
+  Harper and Konstan, ACM TiiS 5(4), 2015, doi 10.1145/2827872.
+
+INPUT
+  our catalogue                      :      4,803 films
+  links.csv rows with no tmdbId      :        107  (skipped)
+  MovieLens ids mapping to our films :      4,602
+  our films reachable from MovieLens :      4,598 of 4,803
+  our films with two MovieLens ids   :          4  [4912, 10991, 15028, 22649]
+  MovieLens ratings, all films       : 25,000,095
+  ... on our films                   : 17,258,140  (69.0%)
+  users rating our films             :    162,532
+  ratings per user on our films      : max 3,609, median 52
+
+SAMPLE
+
+  stratum A, uniform (>= 20 ratings)       :      1,000 of 142,023 eligible
+  stratum B, taggers (>= 5 tags)          :        500 of 5,980 eligible
+  users selected                     :      1,500
+  seed                               :         37
+
+  real ratings collected             :    246,192
+  duplicate (user, film) resolved    :          5  (two MovieLens ids, one TMDB film; earliest kept)
+  ratings off the 0.5-5.0 half-star  :          0
+
+  tag applications by these users     :     72,600
+  ... empty after trimming           :          0  (dropped)
+  ... longer than 100 characters     :          0  (dropped)
+  ... exact (user, film, tag) repeats:          0  (earliest kept)
+  tags written                       :     72,600
+
+  synthetic users kept (ids 1-1000)   :         12
+  their ratings kept                 :        784
+
+  SYNTHETIC activity documents       :      9,797  for 812 users
+  ... event types                    : {'rate_movie': 2694, 'search': 1208, 'view_movie': 5895}
+  ... spread over the last           :         30 days (relative to import, not to this build)
+
+OUTPUT
+  users             1,512  (12 synthetic + 1,500 real)
+  ratings         246,976  (784 synthetic + 246,192 real)
+  user_tags        72,600  (real)
+  activity          9,797  (synthetic, see above)
+
+  films with at least one rating     :      4,169 of 4,803
+  films with at least 20 ratings     :      2,201  (03_verify.sql section C2 wants >= 1,000)
+  ratings per film, median           :         22
+  ratings per user, median           :         78
+
+VALIDATION  (every value must be 0)
+--------------------------------------------------------------------
+  [OK  ] users.user_id duplicated                       0
+  [OK  ] users.username duplicated                      0
+  [OK  ] users.username shorter than 3                  0
+  [OK  ] ratings duplicate primary key                  0
+  [OK  ] ratings orphan movie_id                        0
+  [OK  ] ratings orphan user_id                         0
+  [OK  ] ratings outside 0.5-5.0                        0
+  [OK  ] ratings not on a half-star step                0
+  [OK  ] ratings with updated_at before rated_at        0
+  [OK  ] user_tags duplicate (user, film, tag)          0
+  [OK  ] user_tags orphan movie_id                      0
+  [OK  ] user_tags orphan user_id                       0
+  [OK  ] user_tags outside 1-100 characters             0
+--------------------------------------------------------------------
+  13/13 checks passed
+
+FILES WRITTEN
+  users.csv                      1,512 rows          55 KB
+  ratings.csv                  246,976 rows       8,915 KB
+  user_tags.jsonl               72,600 rows       6,755 KB
+  user_activity_logs.jsonl       9,797 rows       1,316 KB
+
+NEXT
+  python setup_all.py          rebuild both databases
+  (02_load.sql, 03_verify.sql and 05_crud.sql carry the
+   expected row counts; they were updated with this change)

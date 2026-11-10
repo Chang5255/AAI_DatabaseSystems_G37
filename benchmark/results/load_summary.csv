@@ -1,0 +1,3 @@
+database,what,method,units,unit_name,seconds,units_per_second,size_mb
+MySQL,"movies + people + movie_cast + movie_crew (4 tables, FKs checked)","executemany, batches of 1000, one commit per table",345483,rows,12.639,27333.8,9.584
+MongoDB,"movie_features (one document per film, cast and crew embedded)","insert_many, batches of 1000, unordered",4803,documents,0.335,14355.3,27.021

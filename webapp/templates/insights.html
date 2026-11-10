@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% block content %}
+<h1>Catalogue insights <span class="badge mongo">MongoDB</span></h1>
+<p class="lede">Six breakdowns of 4,803 film documents from <b>one pass</b> over the collection.
+  <code>$facet</code> runs independent sub-pipelines over the same input, so this whole page is a single
+  round trip — in MySQL it would be six separate queries, each re-reading or re-joining the data.
+  The timing bar at the bottom of the page shows what that cost.</p>
+
+{% set keywords = facets.get('top_keywords', []) %}
+{% set companies = facets.get('top_companies', []) %}
+{% set countries = facets.get('top_countries', []) %}
+{% set languages = facets.get('top_languages', []) %}
+{% set buckets = facets.get('cast_size_buckets', []) %}
+{% set departments = facets.get('crew_departments', []) %}
+
+<div class="grid">
+  <div>
+    <section class="card">
+      <h2>Keywords</h2>
+      <table class="list compact">
+        {% for row in keywords %}<tr>
+          <td><a href="{{ url_for('main.discover', mode='keyword', q=row.keyword) }}">{{ row.keyword }}</a></td>
+          <td class="r">{{ row.films }}</td></tr>{% endfor %}
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Production companies</h2>
+      <table class="list compact">
+        {% for row in companies %}<tr><td>{{ row.company }}</td><td class="r">{{ row.films }}</td></tr>{% endfor %}
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Countries</h2>
+      <table class="list compact">
+        {% for row in countries %}<tr><td>{{ row.country }}</td><td class="r">{{ row.films }}</td></tr>{% endfor %}
+      </table>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <h2>Cast size <span class="muted" style="font-size: 13px; font-weight: 400">$bucket</span></h2>
+      <table class="list compact">
+        <thead><tr><th>Billed cast</th><th class="r">Films</th><th class="r">Average</th></tr></thead>
+        <tbody>
+        {% for row in buckets %}
+          <tr><td>{{ row.from_cast_size }}+</td><td class="r">{{ row.films }}</td>
+              <td class="r muted">{{ row.avg_cast }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="note">A histogram computed by the server from the <em>shape</em> of each document
+        (<code>$size</code> of the embedded <code>cast</code> array). The normalised schema can only
+        answer this with a <code>GROUP BY</code> over <code>movie_cast</code> and a second aggregate
+        on top of it.</p>
+    </section>
+
+    <section class="card">
+      <h2>Crew departments</h2>
+      <table class="list compact">
+        <thead><tr><th>Department</th><th class="r">Credits</th><th class="r">People</th></tr></thead>
+        <tbody>
+        {% for row in departments %}
+          <tr><td>{{ row.department }}</td><td class="r">{{ row.credits }}</td>
+              <td class="r muted">{{ row.distinct_people }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Spoken languages</h2>
+      <table class="list compact">
+        {% for row in languages %}<tr><td>{{ row.language }}</td><td class="r">{{ row.films }}</td></tr>{% endfor %}
+      </table>
+    </section>
+  </div>
+</div>
+
+<section class="card" style="margin-top: 32px">
+  <h2>Most-tagged films <span class="badge mongo">$lookup</span></h2>
+  {% if tagged %}
+  <table class="list">
+    <thead><tr><th>Film</th><th class="r">Tags</th><th class="r">Taggers</th><th>What users wrote</th>
+      <th>Keywords from the film document</th></tr></thead>
+    <tbody>
+    {% for row in tagged %}{% set film = titles.get(row.movie_id) %}
+      <tr>
+        <td>{% if film %}<a href="{{ url_for('main.movie', movie_id=row.movie_id) }}">{{ film.title }}</a>
+            {% else %}<span class="muted">{{ row.movie_id }}</span>{% endif %}
+            {% if row.orphan %}<span class="badge mongo" title="No movie_features document for this id">orphan</span>{% endif %}</td>
+        <td class="r">{{ row.tag_count }}</td>
+        <td class="r">{{ row.distinct_taggers }}</td>
+        <td>{% for t in row.tags[:5] %}<span class="chip">{{ t }}</span> {% endfor %}</td>
+        <td class="muted" style="font-size: 13px">{{ row.keywords|join(', ') }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">MongoDB has no foreign keys, so a tag can point at a film that does not exist. The join
+    is what detects it: an empty result from <code>$lookup</code> marks the row <b>orphan</b>. In MySQL
+    that row could never have been written in the first place.</p>
+  {% else %}
+  <p class="empty">No tags yet. Open a film and add one, then come back.</p>
+  {% endif %}
+</section>
+
+{% if vocabulary %}
+<section class="card">
+  <h2>Tag vocabulary <span class="muted" style="font-size: 13px; font-weight: 400">$sortByCount</span></h2>
+  <p>{% for row in vocabulary %}<span class="chip">{{ row.tag }} · {{ row.uses }}</span> {% endfor %}</p>
+</section>
+{% endif %}
+
+<details class="source">
+  <summary>Show the $facet pipeline</summary>
+  <pre>{{ source }}</pre>
+</details>
+{% endblock %}

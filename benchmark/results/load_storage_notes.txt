@@ -1,0 +1,14 @@
+MySQL 8.0.45 | MongoDB 9.0.4
+Python 3.13.0 on Windows-11-10.0.26200-SP0
+Run at 2026-11-10T18:36:14
+batch=1000
+
+MySQL application database   143.34 MB
+MongoDB application database 52.46 MB
+cast and crew, normalised    111.08 MB (people + movie_cast + movie_crew)
+cast and crew, embedded      31.11 MB (movie_features, plus overviews and keywords)
+
+The load figures are client-driven on both sides (executemany /
+insert_many), so they compare drivers as much as servers.
+02_load.sql uses LOAD DATA LOCAL INFILE, where the server reads the
+file directly, and is several times faster than the number above.

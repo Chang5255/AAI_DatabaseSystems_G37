@@ -1,0 +1,6 @@
+database,variant,method,rows,runs,best_seconds,rows_per_second,ms_per_row,speedup_vs_slowest_in_db
+MySQL,1. autocommit per row,"2000 statements, 2000 commits",2000,3,5.6062,356.7,2.8031,1.0
+MySQL,2. one transaction,"2000 statements, 1 commit",2000,3,0.7942,2518.4,0.3971,7.1
+MySQL,3. executemany(200),"multi-row INSERTs, 1 commit",2000,3,0.2358,8483.4,0.1179,23.8
+MongoDB,4. insert_one per document,2000 round trips (w=1),2000,3,0.5722,3495.3,0.2861,1.0
+MongoDB,5. insert_many(200),batched round trips (w=1),2000,3,0.0424,47159.6,0.0212,13.5

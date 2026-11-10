@@ -1,0 +1,15 @@
+database,object,records,data_mb,index_mb,total_mb,compressed_storage_mb
+MySQL,movie_crew,129581,24.723,37.945,62.669,
+MySQL,movie_cast,106257,18.448,20.496,38.945,
+MySQL,ratings,246976,9.978,5.784,15.761,
+MySQL,rating_audit,65419,5.784,7.913,13.697,
+MySQL,people,104842,4.735,4.735,9.47,
+MySQL,movies,4803,1.589,0.344,1.933,
+MySQL,movie_genres,12160,0.377,0.295,0.672,
+MySQL,users,1512,0.098,0.066,0.164,
+MySQL,genres,20,0.016,0.016,0.033,
+MongoDB,movie_features,4803,27.26,3.846,31.106,27.054
+MongoDB,people_graph,18804,4.924,1.229,6.153,5.403
+MongoDB,recommendations,2,0.005,0.061,0.067,0.02
+MongoDB,user_activity_logs,9815,1.43,2.54,3.97,1.028
+MongoDB,user_tags,72698,6.551,4.616,11.167,3.265

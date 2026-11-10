@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Audit trail{% endblock %}
+{% block content %}
+<h1>Rating audit trail <span class="badge mysql">MySQL</span></h1>
+<p class="lede">Every change ever made to a rating, written by three <code>AFTER</code> triggers on the
+  <code>ratings</code> table. The application has no privilege to write this table, and no code in the
+  application writes to it: the rows appear because the <b>database</b> puts them there.</p>
+
+{% if missing %}
+<section class="card">
+  <h2>Not set up yet</h2>
+  <p>Run <code>database/mysql/08_triggers.sql</code> (as root, after <code>02_load.sql</code>) to create
+    the <code>rating_audit</code> table and its triggers, then reload this page.</p>
+</section>
+{% else %}
+
+{% if summary %}
+<section class="card">
+  <h2>Summary <span class="muted" style="font-size: 13px; font-weight: 400">GROUP BY action WITH ROLLUP</span></h2>
+  <table class="list">
+    <thead><tr><th>Action</th><th class="r">Changes</th><th class="r">Users</th><th class="r">Films</th>
+      <th class="r">By deleted users</th><th>First</th><th>Latest</th></tr></thead>
+    <tbody>
+    {% for s in summary %}
+      <tr {{ 'style=font-weight:700' if s.action == 'All actions' }}>
+        <td>{{ s.action }}</td>
+        <td class="r">{{ s.changes }}</td>
+        <td class="r">{{ s.users }}</td>
+        <td class="r">{{ s.films }}</td>
+        <td class="r">{{ s.by_deleted_users }}</td>
+        <td class="muted">{{ s.first_change|dt }}</td>
+        <td class="muted">{{ s.latest_change|dt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note"><b>By deleted users</b> counts audit rows whose user no longer exists.
+    <code>rating_audit</code> deliberately has no foreign key to <code>users</code>: a trail that is
+    deleted along with its subject proves nothing.</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Most recent {{ limit }} changes</h2>
+  {% if rows %}
+  <div class="scroll">
+  <table class="list compact">
+    <thead><tr><th>#</th><th>Action</th><th>User</th><th>Film</th><th class="r">From</th><th class="r">To</th>
+      <th>Account</th><th class="r">Conn</th><th>When</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="muted">{{ r.audit_id }}</td>
+        <td><span class="pill">{{ r.action }}</span></td>
+        <td>{% if r.username %}<a href="{{ url_for('main.user', user_id=r.user_id) }}">{{ r.username }}</a>
+            {% else %}<span class="muted">user {{ r.user_id }} (deleted)</span>{% endif %}</td>
+        <td>{% if r.title %}<a href="{{ url_for('main.movie', movie_id=r.movie_id) }}">{{ r.title }}</a>
+            {% else %}<span class="muted">{{ r.movie_id }}</span>{% endif %}</td>
+        <td class="r">{{ r.old_value if r.old_value is not none else '-' }}</td>
+        <td class="r">{{ r.new_value if r.new_value is not none else '-' }}</td>
+        <td class="muted" style="font-size: 12px">{{ r.changed_by }}</td>
+        <td class="r muted">{{ r.connection_id }}</td>
+        <td class="muted" style="white-space: nowrap">{{ r.changed_at|dt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">No changes recorded yet. Rate a film, change the rating, then delete it — three rows
+    will appear here.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Two things to notice</h2>
+  <p class="note"><b>The account is recorded.</b> <code>changed_by</code> comes from
+    <code>SESSION_USER()</code>, so a change made in MySQL Workbench as <code>root</code> is logged just
+    like one made by the web application as <code>inf2003</code>. An audit rule written in Python would
+    only have caught the second one. (<code>CURRENT_USER()</code> would have been wrong here: inside a
+    trigger it returns the trigger's definer, so every row would say <code>root</code>.)</p>
+  <p class="note"><b>There is a hole, and it is not ours.</b> MySQL does not fire triggers for rows
+    removed by a foreign-key action, so the ratings deleted by <code>ON DELETE CASCADE</code> when a user
+    is deleted never reach this table. Deleting a user through the application reports that gap instead of
+    hiding it; closing it properly would mean deleting the ratings explicitly before deleting the user.</p>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Import ratings{% endblock %}
+{% block content %}
+<h1>Import ratings <span class="badge mysql">MySQL</span></h1>
+<p class="lede">A batch of ratings loaded inside <b>one transaction</b>. Choose how a bad line should be
+  handled and watch the difference: this is the <code>SAVEPOINT</code> demo from
+  <code>database/mysql/09_transactions.sql</code>, driven from the application.</p>
+
+<section class="card">
+  <h2>Paste up to {{ limit }} lines</h2>
+  <form method="post" action="{{ url_for('main.import_ratings') }}">
+    <textarea name="ratings" rows="9" style="width: 100%; font-family: ui-monospace, monospace"
+              placeholder="movie_id, rating&#10;19995, 4.5&#10;155, 5.0&#10;27205, 3.7   &lt;- refused: not a half-star step&#10;999999999, 4.0  &lt;- refused: no such film">{{ text }}</textarea>
+
+    <p style="margin: 14px 0 8px">
+      <label><input type="radio" name="mode" value="savepoint" {{ 'checked' if not all_or_nothing }}>
+        <b>Per line</b> — <code>SAVEPOINT</code> before each line; a refused line is undone on its own
+        and the rest are still committed together</label><br>
+      <label><input type="radio" name="mode" value="all" {{ 'checked' if all_or_nothing }}>
+        <b>All or nothing</b> — the first refusal rolls the whole transaction back (atomicity)</label>
+    </p>
+    <button>Import</button>
+  </form>
+
+  {% if sample %}
+  <p class="note">Films this user has not rated yet, if you need ids:
+    {% for s in sample %}<code>{{ s.movie_id }}</code> {{ s.title }}{{ '; ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+</section>
+
+{% if results %}
+<section class="card">
+  <h2>Result
+    {% if committed %}<span class="badge mysql">COMMITTED</span>{% else %}<span class="badge mongo">ROLLED BACK</span>{% endif %}
+  </h2>
+  <p class="muted">Mode: {{ mode_used }} ·
+    {{ results|selectattr('status', 'equalto', 'ok')|list|length }} accepted ·
+    {{ results|selectattr('status', 'equalto', 'failed')|list|length }} refused by the database ·
+    {{ results|selectattr('status', 'equalto', 'skipped')|list|length }} unparseable</p>
+
+  <table class="list">
+    <thead><tr><th>Line</th><th>Film</th><th class="r">Rating</th><th>Outcome</th><th>Why</th></tr></thead>
+    <tbody>
+    {% for r in results %}
+      <tr>
+        <td class="muted">{{ r.line }}</td>
+        <td>{% if r.movie_id %}<a href="{{ url_for('main.movie', movie_id=r.movie_id) }}">{{ r.movie_id }}</a>{% else %}<span class="muted">-</span>{% endif %}</td>
+        <td class="r">{{ r.value if r.value is not none else '-' }}</td>
+        <td>{% if r.status == 'ok' %}<span class="badge mysql">{{ r.detail }}</span>
+            {% elif r.status == 'failed' %}<span class="badge mongo">refused</span>
+            {% else %}<span class="muted">skipped</span>{% endif %}</td>
+        <td class="muted" style="font-size: 13px">{{ r.detail if r.status != 'ok' else '' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="note">Nothing above was validated in Python beyond splitting the text: every
+    <em>refused</em> line was rejected by MySQL itself — the <code>CHECK</code> on the 0.5–5.0 range,
+    the <code>CHECK</code> that enforces half-star steps, the <code>FOREIGN KEY</code> on
+    <code>movie_id</code>, or the trigger that refuses films that have not been released.
+    Each accepted line also wrote a row to <a href="{{ url_for('main.audit') }}">the audit trail</a>.</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>What the two modes do differently</h2>
+  <pre>-- Per line                             -- All or nothing
+START TRANSACTION;                      START TRANSACTION;
+  SAVEPOINT line_0;                       INSERT ... (line 1)   -- ok
+  INSERT ... (line 1)   -- ok             INSERT ... (line 2)   -- ok
+  SAVEPOINT line_1;                       INSERT ... (line 3)   -- REFUSED
+  INSERT ... (line 2)   -- REFUSED      ROLLBACK;               -- lines 1-2 lost too
+  ROLLBACK TO SAVEPOINT line_1;
+  SAVEPOINT line_2;
+  INSERT ... (line 3)   -- ok
+COMMIT;                 -- lines 1, 3 kept</pre>
+  <p class="note"><code>ROLLBACK TO SAVEPOINT</code> undoes the statements after the savepoint and
+    releases the locks they took, but it does <em>not</em> end the transaction: the earlier lines stay
+    uncommitted, and still locked, until the final <code>COMMIT</code>.</p>
+</section>
+{% endblock %}

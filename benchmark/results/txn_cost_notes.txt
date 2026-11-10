@@ -1,0 +1,11 @@
+MySQL 8.0.45, innodb_flush_log_at_trx_commit=1
+MongoDB 9.0.4
+Python 3.13.0 on Windows-11-10.0.26200-SP0
+Run at 2026-11-10T18:39:21
+rows=2000 batch=200 repeats=3 (best of 3 reported)
+
+innodb_flush_log_at_trx_commit = 1 means the log is flushed and
+fsynced at every commit, which is what makes variant 1 slow: the
+cost is one disk sync per row. Variant 2 pays it once. Variant 3
+also removes round trips. The MySQL and MongoDB figures are not a
+head-to-head race: different operations, different guarantees.

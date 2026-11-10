@@ -1,0 +1,85 @@
+MySQL 8.0.45
+Python 3.13.0 on Windows-11-10.0.26200-SP0
+Run at 2026-11-10T17:31:14
+samples=300 repeats=5 warmup=1
+
+===== T1 cast query =====
+SELECT p.person_id, p.name, mc.character_name, mc.cast_order
+      FROM movie_cast mc
+      JOIN people p ON p.person_id = mc.person_id
+     WHERE mc.movie_id = %s
+     ORDER BY mc.cast_order
+params=(65,)
+
+-> Nested loop inner join  (cost=13.3 rows=19) (actual time=0.0536..0.164 rows=19 loops=1)
+    -> Index lookup on mc using idx_cast_movie_order_person (movie_id=65)  (cost=6.65 rows=19) (actual time=0.0406..0.0804 rows=19 loops=1)
+    -> Single-row index lookup on p using PRIMARY (person_id=mc.person_id)  (cost=0.255 rows=1) (actual time=0.00402..0.00405 rows=1 loops=19)
+
+
+===== T1 crew query =====
+SELECT p.person_id, p.name, cr.department, cr.job
+      FROM movie_crew cr
+      JOIN people p ON p.person_id = cr.person_id
+     WHERE cr.movie_id = %s
+params=(65,)
+
+-> Nested loop inner join  (cost=84.4 rows=92) (actual time=0.0601..0.667 rows=92 loops=1)
+    -> Index lookup on cr using idx_crew_movie (movie_id=65)  (cost=52.2 rows=92) (actual time=0.0512..0.263 rows=92 loops=1)
+    -> Single-row index lookup on p using PRIMARY (person_id=cr.person_id)  (cost=0.251 rows=1) (actual time=0.00413..0.00417 rows=1 loops=92)
+
+
+===== T2 JSON query =====
+SELECT JSON_OBJECT(
+             'movie_id', m.movie_id,
+             'cast', (SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                               'person_id', p.person_id, 'name', p.name,
+                               'character', mc.character_name, 'order', mc.cast_order))
+                        FROM movie_cast mc JOIN people p ON p.person_id = mc.person_id
+                       WHERE mc.movie_id = m.movie_id),
+             'crew', (SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                               'person_id', p.person_id, 'name', p.name,
+                               'department', cr.department, 'job', cr.job))
+                        FROM movie_crew cr JOIN people p ON p.person_id = cr.person_id
+                       WHERE cr.movie_id = m.movie_id))
+      FROM movies m
+     WHERE m.movie_id = %s
+params=(65,)
+
+-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=0..100e-6 rows=1 loops=1)
+-> Select #2 (subquery in projection; dependent)
+    -> Aggregate: json_arrayagg(json_object('person_id',p.person_id,'name',p.`name`,'character',mc.character_name,'order',mc.cast_order))  (cost=15.2 rows=1) (actual time=0.114..0.114 rows=1 loops=1)
+        -> Nested loop inner join  (cost=13.3 rows=19) (actual time=0.0226..0.0762 rows=19 loops=1)
+            -> Index lookup on mc using idx_cast_movie (movie_id='65')  (cost=6.65 rows=19) (actual time=0.0185..0.0453 rows=19 loops=1)
+            -> Single-row index lookup on p using PRIMARY (person_id=mc.person_id)  (cost=0.255 rows=1) (actual time=0.00141..0.00145 rows=1 loops=19)
+-> Select #3 (subquery in projection; dependent)
+    -> Aggregate: json_arrayagg(json_object('person_id',p.person_id,'name',p.`name`,'department',cr.department,'job',cr.job))  (cost=93.6 rows=1) (actual time=1.17..1.17 rows=1 loops=1)
+        -> Nested loop inner join  (cost=84.4 rows=92) (actual time=0.0254..0.52 rows=92 loops=1)
+            -> Index lookup on cr using idx_crew_movie (movie_id='65')  (cost=52.2 rows=92) (actual time=0.0222..0.32 rows=92 loops=1)
+            -> Single-row index lookup on p using PRIMARY (person_id=cr.person_id)  (cost=0.251 rows=1) (actual time=0.0019..0.00195 rows=1 loops=92)
+
+
+===== T3 films by actor =====
+SELECT movie_id, character_name, cast_order
+      FROM movie_cast
+     WHERE person_id = %s
+params=(49,)
+
+-> Index lookup on movie_cast using idx_cast_person (person_id=49)  (cost=7.35 rows=21) (actual time=0.0477..0.139 rows=21 loops=1)
+
+
+===== T4 rename (plan only, not executed) =====
+UPDATE people SET name = %s WHERE person_id = %s
+params=('<new name>', 49)
+
+  id             1
+  select_type    UPDATE
+  table          people
+  partitions     None
+  type           range
+  possible_keys  PRIMARY
+  key            PRIMARY
+  key_len        4
+  ref            const
+  rows           1
+  filtered       100.0
+  Extra          Using where
