@@ -38,7 +38,7 @@ BUILDING TABLES
     blank character_name -> NULL      : 683
     movies with no cast (kept)        : 43
     movies with no crew (kept)        : 28
-  users / ratings  (SYNTHETIC - declare this in the report)
+  users / ratings  (SYNTHETIC - SUPERSEDED, see the note at the end)
     users seeded                      : 12
     ratings seeded                    : 784
     duplicate (user_id, movie_id)     : 0
@@ -79,8 +79,64 @@ WRITING CSVs FOR MySQL
   people.csv            104,842 rows      2,421 KB
   movie_cast.csv        106,257 rows      5,583 KB
   movie_crew.csv        129,581 rows      7,794 KB
-  users.csv                  12 rows          1 KB
-  ratings.csv               784 rows         28 KB
+  users.csv                  12 rows          1 KB   (superseded)
+  ratings.csv               784 rows         28 KB   (superseded)
   movie_features.jsonl    4,803 docs     26,726 KB
 
 DONE
+
+============================================================
+ADDENDUM - the ratings are no longer synthetic
+added 2026-11-10
+============================================================
+
+The pass above generated 12 users and 784 ratings, because TMDB
+publishes only an aggregate vote_average and never a per-user rating.
+784 rows was too few to demonstrate the analytics this project is
+built around, so a second pass brought in real data:
+
+  data/build_movielens_ratings.py   the code
+  data/cleaned/movielens_report.txt the audit trail, in the same
+                                    format as this one
+
+Source: MovieLens 25M (GroupLens, University of Minnesota), joined to
+our TMDB catalogue on links.csv tmdbId - the same key our two
+databases already share, so no title matching was needed.
+Cite: Harper and Konstan, ACM TiiS 5(4), 2015, doi 10.1145/2827872.
+
+WHAT CHANGED
+  users.csv     12 ->      1,512 rows   12 synthetic + 1,500 real
+  ratings.csv  784 ->    246,976 rows  784 synthetic + 246,192 real
+  user_tags.jsonl          72,600 docs  REAL MovieLens tag applications
+  user_activity_logs.jsonl  9,797 docs  SYNTHETIC, derived from the
+                                        real ratings (no public dataset
+                                        contains page views)
+
+WHAT DID NOT CHANGE
+  * the schema: every value satisfies the constraints that were already
+    in 01_schema.sql, including the 0.5-5.0 range and the half-star
+    step, which MovieLens happens to use natively
+  * the catalogue: movies, genres, people, movie_cast, movie_crew,
+    movie_genres and movie_features.jsonl are untouched
+  * the 12 synthetic users (ids 1-12) and their 784 ratings, kept as
+    they are because they are the accounts the UI demos with and were
+    designed to exercise the constraints
+
+PROVENANCE IS CHECKABLE IN SQL
+  user_id <= 1000  synthetic, from the pass above
+  user_id >  1000  real MovieLens user (username ml_<their id>)
+  03_verify.sql section C5 prints the split.
+
+DENSITY AFTER THE CHANGE
+  films with at least one rating    : 4,169 of 4,803
+  films with at least 20 ratings    : 2,201   (the old target was 1,000)
+  ratings per film  : median 22, mean 59
+  ratings per user  : min 20, mean 163, max 2,148
+  real ratings span : 1996-04-05 to 2019-11-21
+
+The sampling design, and the reasons for it, are in
+movielens_report.txt. The short version: 1,000 users drawn uniformly
+from everyone with 20+ ratings on our films, plus 500 drawn from those
+who also wrote 5+ tags, because the MongoDB tag collection needed real
+volume. The second stratum means the tag data is NOT a uniform sample
+of MovieLens taggers, and that is stated rather than hidden.

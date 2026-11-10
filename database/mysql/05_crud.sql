@@ -147,5 +147,5 @@ SELECT
                                          -- expect 0 and 0
 
 -- Final check: loaded data is back to its original size.
-SELECT (SELECT COUNT(*) FROM users)   AS users_total,    -- expect 12
-       (SELECT COUNT(*) FROM ratings) AS ratings_total;  -- expect 784
+SELECT (SELECT COUNT(*) FROM users)   AS users_total,    -- expect 1,512
+       (SELECT COUNT(*) FROM ratings) AS ratings_total;  -- expect 246,976

@@ -20,12 +20,26 @@
 </div>
 
 <div class="section-head">
-  <h2>Recommended for {{ name }} <span class="badge mongo">MongoDB</span></h2>
-  <form method="post" action="{{ url_for('main.recommend', user_id=profile.user_id) }}" class="inline" style="margin: 0">
-    {% if recs %}<span class="muted" style="font-size: 13px">{{ latest.algorithm }} · generated {{ latest.generated_at|dt }} UTC</span>{% endif %}
-    <button>{{ 'Regenerate' if recs else 'Generate recommendations' }}</button>
-  </form>
+  <h2>Recommended for {{ name }}</h2>
+  <div class="inline" style="margin: 0">
+    {% if recs %}<span class="muted" style="font-size: 13px">{{ latest.algorithm }} ·
+      {{ latest.generated_at|dt }} UTC{% if latest.based_on %} · from
+      {{ latest.based_on.liked_films }} liked film(s), {{ latest.based_on.profile_keywords }} keywords{% endif %}</span>{% endif %}
+    <form method="post" action="{{ url_for('main.recommend', user_id=profile.user_id) }}" class="inline" style="margin: 0">
+      <button class="quiet" title="MongoDB only: keywords of the films this user viewed">From views</button>
+    </form>
+    <form method="post" action="{{ url_for('main.recommend_hybrid', user_id=profile.user_id) }}" class="inline" style="margin: 0">
+      <button title="MySQL ratings and favourite genres + MongoDB keywords">Hybrid</button>
+    </form>
+  </div>
 </div>
+<p class="note" style="margin-top: 0">Two recommenders over the same films.
+  <b>From views</b> <span class="badge mongo">MongoDB</span> finds films sharing keywords with whatever
+  this user opened: every keyword counts the same, and a view might have been a film they hated.
+  <b>Hybrid</b> <span class="badge mysql">MySQL</span><span class="badge mongo">MongoDB</span> takes the
+  ratings from MySQL, which is where the integrity guarantees are, weights each keyword by the score of
+  the film it came from, excludes everything already rated, and nudges this user's favourite genres
+  (the Q14 query) upwards.</p>
 {% if recs %}
 <div class="film-grid">
   {% for r in recs %}{% set f = titles.get(r.movie_id) %}
@@ -49,6 +63,9 @@
   <div>
     <section class="card">
       <h2>Ratings <span class="badge mysql">MySQL</span> <span class="muted" style="font-size: 13px; font-weight: 400">{{ ratings|length }}</span></h2>
+      <p class="note" style="margin-top: 0"><a href="{{ url_for('main.import_ratings') }}">Import a batch</a>
+        (one transaction, a savepoint per line) ·
+        <a href="{{ url_for('main.audit') }}">audit trail of every change</a></p>
       {% if fav_genres %}<p class="note" style="margin-top: 0">Favourite genres (rated 3+ times):
         {% for fg in fav_genres %}<b>{{ fg.genre }}</b> {{ fg.avg_rating }}★ ({{ fg.ratings_in_genre }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
       <div class="scroll">
@@ -104,7 +121,10 @@
         <button class="danger">Delete user</button>
       </form>
       <p class="note">Deleting removes the user's ratings through <code>ON DELETE CASCADE</code> in MySQL.
-        MongoDB has no foreign keys, so the app deletes their tags, activity and recommendations itself.</p>
+        MongoDB has no foreign keys, so the app deletes their tags, activity and recommendations itself —
+        and because the two databases cannot share a transaction, it snapshots the MongoDB documents
+        first, holds the MySQL delete open until the MongoDB delete succeeds, and puts the documents back
+        if the commit then fails. A compensating transaction, not an atomic one.</p>
     </section>
   </div>
 </div>

@@ -8,11 +8,19 @@ MongoDB: one shared MongoClient for the whole app (pymongo pools it).
 Every query the UI runs goes through mysql_query() / mysql_exec() /
 mongo_timed(), which record how long it took. The page footer shows
 those timings, so each page doubles as a small SQL vs NoSQL comparison.
+
+Transactions: the connection runs with autocommit ON, so an ordinary
+statement commits itself, which is what a single read or single write
+wants. Anything that must be all-or-nothing goes through the
+mysql_transaction() context manager below: it turns autocommit off for
+the duration, commits at the end, and rolls back on any exception.
+database/mysql/09_transactions.sql shows the same ideas in plain SQL.
 """
 
 import os
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import mysql.connector
@@ -89,6 +97,43 @@ def mysql_exec(sql, params=(), label="write"):
         cur.close()
     _record("MySQL", label, started, result[0])
     return result
+
+
+@contextmanager
+def mysql_transaction(label="transaction"):
+    """Run several statements as one unit of work.
+
+        with mysql_transaction("Import ratings") as cur:
+            cur.execute(...)
+            cur.execute(...)
+
+    Leaving the block normally commits; raising anything rolls the whole
+    thing back, so a half-finished change can never be left behind. The
+    cursor is a plain (non-dictionary) cursor, and SAVEPOINT /
+    ROLLBACK TO SAVEPOINT can be issued on it for per-row error
+    handling inside the transaction (see routes.import_ratings).
+
+    Timings are recorded like any other call, so the page footer shows
+    how long the transaction took.
+    """
+    conn = get_mysql()
+    started = time.perf_counter()
+    was_autocommit = conn.autocommit
+    conn.autocommit = False
+    cur = conn.cursor()
+    committed = False
+    try:
+        yield cur
+        conn.commit()
+        committed = True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.autocommit = was_autocommit
+        _record("MySQL", f"{label} ({'COMMIT' if committed else 'ROLLBACK'})",
+                started, 0)
 
 
 # ---------------------------------------------------------------------

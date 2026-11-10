@@ -2,7 +2,11 @@
 {% block title %}Users{% endblock %}
 {% block content %}
 <h1>Users <span class="badge mysql">MySQL</span></h1>
-<p class="lede">Demo profiles with no passwords (by design). Pick one in the top bar to rate and tag films as that user.</p>
+<p class="lede">{{ '{:,}'.format(totals.total) }} accounts:
+  <b>{{ totals.demo_users }}</b> demo profiles created for this project (no passwords, by design) and
+  <b>{{ '{:,}'.format(totals.real_users) }}</b> real
+  <a href="https://grouplens.org/datasets/movielens/25m/">MovieLens 25M</a> users, whose
+  {{ '246,192' }} ratings came with them. Pick anyone in the top bar to rate and tag films as them.</p>
 
 <section class="card">
   <h2>Create a user</h2>
@@ -15,14 +19,33 @@
     <code>CHECK</code> rejects names shorter than 3 characters. Try one to see the error.</p>
 </section>
 
+<section class="card">
+  <form method="get" action="{{ url_for('main.users') }}" class="inline">
+    <input name="q" value="{{ params.q or '' }}" placeholder="Search username, e.g. ml_123 or cinephile">
+    <select name="kind" aria-label="Which accounts">
+      <option value="" {{ 'selected' if not params.kind }}>All accounts</option>
+      <option value="demo" {{ 'selected' if params.kind == 'demo' }}>Demo profiles only</option>
+      <option value="real" {{ 'selected' if params.kind == 'real' }}>Real MovieLens users only</option>
+    </select>
+    <button>Search</button>
+    {% if params.q or params.kind %}<a class="quiet" href="{{ url_for('main.users') }}">Clear</a>{% endif %}
+  </form>
+  <p class="note">Demo profiles come first, then real users by how much they have rated.
+    <a href="{{ url_for('main.import_ratings') }}">Import a batch of ratings</a> ·
+    <a href="{{ url_for('main.audit') }}">audit trail of every rating change</a></p>
+</section>
+
 <table class="list">
-  <thead><tr><th>User</th><th>Username</th><th class="r">Ratings</th><th class="r">Avg given</th><th>Last rated</th><th></th></tr></thead>
+  <thead><tr><th>User</th><th>Username</th><th>Source</th><th class="r">Ratings</th>
+    <th class="r">Avg given</th><th>Last rated</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
     <tr>
       <td><a href="{{ url_for('main.user', user_id=u.user_id) }}">{{ u.display_name or u.username }}</a></td>
       <td class="muted">{{ u.username }}</td>
-      <td class="r">{{ u.ratings_given }}</td>
+      <td>{% if u.user_id <= 1000 %}<span class="pill">demo</span>
+          {% else %}<span class="badge mysql">MovieLens</span>{% endif %}</td>
+      <td class="r">{{ '{:,}'.format(u.ratings_given) }}</td>
       <td class="r">{{ u.avg_rating_given|num(2) }}</td>
       <td class="muted">{{ u.latest_rating_at|dt }}</td>
       <td class="r">
@@ -32,7 +55,16 @@
         </form>
       </td>
     </tr>
+  {% else %}
+    <tr><td colspan="7" class="muted">No account matches that search.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+
+<nav class="pager" aria-label="Pages">
+  {% set base = request.args.to_dict() %}
+  {% if page > 1 %}{% set _ = base.update({'page': page - 1}) %}<a href="{{ url_for('main.users', **base) }}">← Previous</a>{% else %}<span class="off">← Previous</span>{% endif %}
+  <span>{% if users %}Accounts {{ offset + 1 }}–{{ offset + users|length }}{% else %}Page {{ page }}{% endif %}</span>
+  {% if has_next %}{% set _ = base.update({'page': page + 1}) %}<a href="{{ url_for('main.users', **base) }}">Next →</a>{% else %}<span class="off">Next →</span>{% endif %}
+</nav>
 {% endblock %}

@@ -16,9 +16,12 @@
     <a href="{{ url_for('main.browse') }}" class="{{ 'on' if ep == 'main.browse' }}">Browse</a>
     <a href="{{ url_for('main.discover') }}" class="{{ 'on' if ep == 'main.discover' }}">Discover</a>
     <a href="{{ url_for('main.people') }}" class="{{ 'on' if ep == 'main.people' }}">People</a>
+    <a href="{{ url_for('main.insights') }}" class="{{ 'on' if ep == 'main.insights' }}">Insights</a>
+    <a href="{{ url_for('main.network') }}" class="{{ 'on' if ep == 'main.network' }}">Network</a>
     <a href="{{ url_for('main.reports') }}" class="{{ 'on' if ep == 'main.reports' }}">Reports</a>
+    <a href="{{ url_for('main.audit') }}" class="{{ 'on' if ep == 'main.audit' }}">Audit</a>
     <a href="{{ url_for('main.compare') }}" class="{{ 'on' if ep == 'main.compare' }}">SQL vs NoSQL</a>
-    <a href="{{ url_for('main.users') }}" class="{{ 'on' if ep in ('main.users', 'main.user') }}">Users</a>
+    <a href="{{ url_for('main.users') }}" class="{{ 'on' if ep in ('main.users', 'main.user', 'main.import_ratings') }}">Users</a>
   </nav>
   <form class="switcher" method="post" action="{{ url_for('main.switch_user') }}">
     <label for="user_id">Acting as</label>

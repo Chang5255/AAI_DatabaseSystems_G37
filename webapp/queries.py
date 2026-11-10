@@ -105,11 +105,46 @@ SELECT movie_id, title, release_year, genres, tmdb_score
 # ---------------------------------------------------------------------
 # Users and ratings (05_crud.sql)
 # ---------------------------------------------------------------------
+# The users list is paged and searchable, because there are 1,512 of
+# them: 12 synthetic demo accounts and 1,500 real MovieLens users.
+# Before the real ratings were loaded this query had no LIMIT, which
+# was fine for 12 rows and would now render a 765 KB page.
 USERS = """
 SELECT user_id, username, display_name, ratings_given, avg_rating_given,
        latest_rating_at
   FROM v_user_activity
- ORDER BY username
+ WHERE (%(q)s IS NULL OR username LIKE CONCAT('%%', %(q)s, '%%'))
+   AND (%(kind)s IS NULL
+        OR (%(kind)s = 'demo' AND user_id <= 1000)
+        OR (%(kind)s = 'real' AND user_id >  1000))
+ ORDER BY (user_id > 1000), ratings_given DESC, username
+ LIMIT %(limit)s OFFSET %(offset)s
+"""
+
+USERS_COUNT = """
+SELECT COUNT(*)                     AS total,
+       SUM(user_id <= 1000)         AS demo_users,
+       SUM(user_id >  1000)         AS real_users
+  FROM users
+"""
+
+# The "Acting as" box in the top bar. It used to load every user on
+# every page; with 1,512 users that is a 1,500-row query and a 1,500
+# option dropdown on all of them. It now shows the 12 demo accounts
+# plus the busiest real users, which is all the box is for.
+USER_SWITCHER_DEMO = """
+SELECT user_id, username, display_name
+  FROM users
+ WHERE user_id <= 1000
+ ORDER BY user_id
+"""
+
+USER_SWITCHER_REAL = """
+SELECT user_id, username, display_name, ratings_given
+  FROM v_user_activity
+ WHERE user_id > 1000
+ ORDER BY ratings_given DESC, username
+ LIMIT %s
 """
 
 USER = "SELECT user_id, username, display_name, created_at FROM users WHERE user_id = %s"
@@ -131,6 +166,75 @@ RATING_GET = "SELECT rating_value FROM ratings WHERE user_id = %s AND movie_id =
 RATING_INSERT = "INSERT INTO ratings (user_id, movie_id, rating_value) VALUES (%s, %s, %s)"
 RATING_UPDATE = "UPDATE ratings SET rating_value = %s WHERE user_id = %s AND movie_id = %s"
 RATING_DELETE = "DELETE FROM ratings WHERE user_id = %s AND movie_id = %s"
+
+# "Rate this film", as ONE statement (05_crud.sql C3).
+#
+# The obvious way to write this button is SELECT, then INSERT or UPDATE
+# depending on the answer. That is a check-then-act race: two requests
+# from the same user (a double tap, or two browser tabs) can both see
+# "not rated yet" and both try to INSERT, and the second one then fails
+# on the composite primary key (user_id, movie_id).
+#
+# ON DUPLICATE KEY UPDATE lets the SERVER decide, atomically: insert if
+# the key is free, overwrite if it is taken. One round trip instead of
+# two, no race, and no error for the user to see.
+#   'AS new' is the MySQL 8.0.19+ row-alias syntax, which replaced the
+#   deprecated VALUES(col) function.
+#   cursor.rowcount is 1 when a row was inserted and 2 when an existing
+#   row was updated, which is how the app knows which message to show.
+RATING_UPSERT = """
+INSERT INTO ratings (user_id, movie_id, rating_value)
+VALUES (%s, %s, %s) AS new
+ON DUPLICATE KEY UPDATE rating_value = new.rating_value
+"""
+
+# Taken before a user is deleted, so the application can put the rows
+# back if the MongoDB half of the delete fails (see routes.delete_user).
+USER_RATINGS_SNAPSHOT = """
+SELECT movie_id, rating_value, rated_at
+  FROM ratings
+ WHERE user_id = %s
+"""
+
+# ---------------------------------------------------------------------
+# Audit trail, written by the triggers in 08_triggers.sql
+# ---------------------------------------------------------------------
+AUDIT_RECENT = """
+SELECT a.audit_id, a.action, a.user_id, u.username, a.movie_id, m.title,
+       a.old_value, a.new_value, a.changed_by, a.connection_id, a.changed_at
+  FROM rating_audit a
+  LEFT JOIN users  u ON u.user_id  = a.user_id
+  LEFT JOIN movies m ON m.movie_id = a.movie_id
+ ORDER BY a.audit_id DESC
+ LIMIT %s
+"""
+
+AUDIT_FOR_USER = """
+SELECT a.audit_id, a.action, a.movie_id, m.title, a.old_value, a.new_value,
+       a.changed_by, a.changed_at
+  FROM rating_audit a
+  LEFT JOIN movies m ON m.movie_id = a.movie_id
+ WHERE a.user_id = %s
+ ORDER BY a.audit_id DESC
+ LIMIT %s
+"""
+
+# One row per action, plus a grand total from WITH ROLLUP.
+# by_deleted_users counts audit rows whose user no longer exists: proof
+# that the trail outlives its subject, because rating_audit deliberately
+# has no foreign keys.
+AUDIT_SUMMARY = """
+SELECT IF(GROUPING(a.action), 'All actions', a.action) AS action,
+       COUNT(*)                   AS changes,
+       COUNT(DISTINCT a.user_id)  AS users,
+       COUNT(DISTINCT a.movie_id) AS films,
+       SUM(u.user_id IS NULL)     AS by_deleted_users,
+       MIN(a.changed_at)          AS first_change,
+       MAX(a.changed_at)          AS latest_change
+  FROM rating_audit a
+  LEFT JOIN users u ON u.user_id = a.user_id
+ GROUP BY a.action WITH ROLLUP
+"""
 
 # Q14 for a single user
 USER_FAVOURITE_GENRE = """
@@ -195,7 +299,8 @@ SQL_REPORTS = {
         """SELECT DENSE_RANK() OVER (ORDER BY ratings_given DESC) AS activity_rank,
                   username, display_name, ratings_given, avg_rating_given, latest_rating_at
              FROM v_user_activity
-            ORDER BY activity_rank, username"""),
+            ORDER BY activity_rank, username
+            LIMIT 50"""),
     "grossing": (
         "Highest-grossing films with profit and ROI", "Q8a - computed columns",
         """SELECT movie_id, title, release_year,
@@ -308,5 +413,6 @@ SQL_REPORTS = {
              FROM ranked r
              JOIN users u ON u.user_id = r.user_id
             WHERE r.rn = 1
-            ORDER BY u.username"""),
+            ORDER BY r.ratings_in_genre DESC, u.username
+            LIMIT 50"""),
 }

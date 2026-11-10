@@ -15,6 +15,13 @@
 -- Load order matters: parents before children, or the foreign keys
 -- will reject the rows.
 -- Nulls in the CSVs are written as \N, which LOAD DATA reads as NULL.
+--
+-- users.csv and ratings.csv hold two kinds of row, and the report says
+-- so: user ids 1-12 are the original synthetic demo accounts with 784
+-- synthetic ratings, and ids from 1001 up are 1,500 real MovieLens 25M
+-- users with 246,192 real ratings, joined to our films on the TMDB id.
+-- See data/cleaned/movielens_report.txt for the full audit trail and
+-- data/build_movielens_ratings.py for the code that produced them.
 -- =====================================================================
 
 USE moviedb;
@@ -99,5 +106,5 @@ UNION ALL SELECT 'movie_genres', COUNT(*),  12160  FROM movie_genres
 UNION ALL SELECT 'people',       COUNT(*),  104842 FROM people
 UNION ALL SELECT 'movie_cast',   COUNT(*),  106257 FROM movie_cast
 UNION ALL SELECT 'movie_crew',   COUNT(*),  129581 FROM movie_crew
-UNION ALL SELECT 'users',        COUNT(*),  12     FROM users
-UNION ALL SELECT 'ratings',      COUNT(*),  784    FROM ratings;
+UNION ALL SELECT 'users',        COUNT(*),  1512   FROM users
+UNION ALL SELECT 'ratings',      COUNT(*),  246976 FROM ratings;
