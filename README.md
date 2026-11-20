@@ -23,7 +23,7 @@ Shared keys: `movies.movie_id` = `movie_features.movie_id`,
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # then set MYSQL_PASSWORD
+cp .env.example .env          # Windows: copy .env.example .env then set MYSQL_PASSWORD
 python setup_all.py           # builds both databases, asks for your MySQL root password
 python app.py                 # http://127.0.0.1:5000
 ```
