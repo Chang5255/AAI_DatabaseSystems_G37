@@ -23,8 +23,7 @@ Shared keys: `movies.movie_id` = `movie_features.movie_id`,
 ```bash
 ## Quick start
 
-**You need:** Python 3.10+, MySQL Community Server **8.0.19+** (not
-MariaDB), and MongoDB Community Server 5.0+, both running. Full details
+You need: Python 3.10+, MySQL Community Server 8.0.19+, and MongoDB Community Server 5.0+, both running. Full details
 and troubleshooting are in `USER_MANUAL.md`.
 
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
