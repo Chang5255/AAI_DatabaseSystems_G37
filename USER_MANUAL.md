@@ -164,8 +164,8 @@ and how long it took.
 
 ### Six things worth trying
 
-1. **A constraint refusing a write.** On the Users page, try to create a user called ab: on the Users page: the `CHECK` on username
-   length refuses it, and the error from MySQL is shown as-is.
+1. **A constraint refusing a write.** On the Users page, try to create
+   a user called `ab`: the `CHECK` on username
 2. **The audit trail.** Rate a film 4 stars, change it to 2, then
    delete the rating, and open **Audit**: three rows, with the old and
    new values and the account that made each change.
@@ -203,8 +203,6 @@ By hand, replace the data path at the top of `02_load.sql` with your own
 `data/cleaned` folder. If Workbench gives error 2068, use
 `python setup_all.py` instead; it fills in the path and loads the data
 for you.
-
-| Script | Run it to show |
 
 | Script | Run it to show |
 |---|---|
