@@ -50,7 +50,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-The data is already in `data/cleaned/` (12 files, about 55 MB), so
+The data is already in `data/cleaned/` (14 files, about 59 MB), so
 there is nothing to download — including the real MovieLens ratings and
 tags. To rebuild those from the original archive instead, see
 `data/build_movielens_ratings.py`; it needs
@@ -83,14 +83,16 @@ your MySQL root password. If MySQL is on a different port, change
 python setup_all.py
 ```
 
-It asks for your MySQL **root** password, warns you that it is about to
-drop any existing `moviedb`, and then:
+It warns you that it is about to drop any existing `moviedb` and asks
+you to confirm, then asks for your MySQL **root** password, and then:
 
 - runs `database/mysql/01_schema.sql` (database, 8 tables, keys, CHECKs)
-- runs `01b_create_user.sql`, filling in the passwords from `.env`
 - runs `02_load.sql`, filling in the path to `data/cleaned` itself, and
   enabling `local_infile` for the bulk load
-- runs `04_views.sql`, `07_indexes.sql` and `08_triggers.sql`
+- runs `04_views.sql`
+- runs `01b_create_user.sql`, filling in the passwords from `.env`
+  (after the views, because it grants access to them)
+- runs `07_indexes.sql` and `08_triggers.sql`
 - runs `database/mongodb/setup_mongodb.py`, which creates the
   collections and validators, imports 4,803 film documents and the
   poster paths, builds the co-star graph, and creates every index
@@ -160,10 +162,9 @@ nothing is logged.
 Every page has a bar at the bottom showing each database call it made
 and how long it took.
 
-### Five things worth trying
+### Six things worth trying
 
-1. **A constraint refusing a write.** On any film, rate it, then try to
-   create a user called `ab` on the Users page: the `CHECK` on username
+1. **A constraint refusing a write.** On the Users page, try to create a user called ab: on the Users page: the `CHECK` on username
    length refuses it, and the error from MySQL is shown as-is.
 2. **The audit trail.** Rate a film 4 stars, change it to 2, then
    delete the rating, and open **Audit**: three rows, with the old and
@@ -197,6 +198,13 @@ and how long it took.
 Several scripts are written to be read and screenshotted, not just run.
 In MySQL Workbench, connect as **root**, and for `02_load.sql` add
 `OPT_LOCAL_INFILE=1` under the connection's *Advanced* → *Others* tab.
+
+By hand, replace the data path at the top of `02_load.sql` with your own
+`data/cleaned` folder. If Workbench gives error 2068, use
+`python setup_all.py` instead; it fills in the path and loads the data
+for you.
+
+| Script | Run it to show |
 
 | Script | Run it to show |
 |---|---|
@@ -264,6 +272,10 @@ docs/                   ER diagram and MongoDB schema diagram
 
 ## 9. When something goes wrong
 
+**`running scripts is disabled on this system`** when activating
+`.venv` in PowerShell on Windows. Run this once, then activate again:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
 **`Access denied for user 'inf2003'@'localhost'`**
 The password in `.env` is not the one the account was created with.
 Re-run `python setup_all.py`, which recreates the account from `.env`.
@@ -299,8 +311,8 @@ Run `python benchmark/mysql_bench.py` first; it draws the ids that every
 benchmark shares.
 
 **Port 5000 is in use** (macOS AirPlay often holds it).
-`python app.py` then open the port Flask prints, or set
-`FLASK_RUN_PORT=5001`.
+Change `port=5000` to `port=5001` in `app.py`, then open
+<http://127.0.0.1:5001>.
 
 ---
 
