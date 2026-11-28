@@ -165,7 +165,8 @@ and how long it took.
 ### Six things worth trying
 
 1. **A constraint refusing a write.** On the Users page, try to create
-   a user called `ab`: the `CHECK` on username
+   a user called `ab`: the `CHECK` on username length refuses it, and
+   the error from MySQL is shown as-is.
 2. **The audit trail.** Rate a film 4 stars, change it to 2, then
    delete the rating, and open **Audit**: three rows, with the old and
    new values and the account that made each change.
